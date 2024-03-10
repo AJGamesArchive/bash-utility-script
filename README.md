@@ -16,7 +16,6 @@ Run the command below to build the directory investigation part of the assignmen
 $ bash setup/buildAssignment 
 ```
 
-
 If by some mistake you delete, move or replace any of the content in `_Directory` you can run the bash script as follows:
 
 ```sh
@@ -54,5 +53,43 @@ This is where you need to point your solution to analyse the contents as part of
 
 # Additional Commands & Tools
 
-- Add executable permission to a bash script: ``chmod +x [script_name].sh``
-- Execute bash script: ``./[script_name].sh``
+## Bash Shell
+
+- Add executable permission to a bash script: 
+```sh
+$ chmod +x [script_name].sh
+```
+- Execute bash script: 
+```sh
+$ ./[script_name].sh
+```
+
+## SSH Connection to GitHub
+
+- Install Git:
+```sh
+$ sudo apt update
+$ sudo apt install git
+```
+- Configure Git Credentials:
+```sh
+$ git config --global user.name "Your GitHub Username"
+$ git config --global user.email "your_email@example.com"
+```
+- Check for Existing SSH Keys
+```sh
+$ ls -al ~/.ssh
+```
+- Generate New SSH Key Pair
+```sh
+$ ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+```
+- Add SSH Key Pair to SSH Agent
+```sh
+$ eval "$(ssh-agent -s)"
+$ ssh-add ~/.ssh/id_rsa
+```
+- Copy SSH Public Key
+```sh
+$ cat ~/.ssh/id_rsa.pub | clip
+```
