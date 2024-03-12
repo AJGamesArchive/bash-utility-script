@@ -59,6 +59,10 @@ This is where you need to point your solution to analyse the contents as part of
 ```sh
 $ chmod +x [script_name].sh
 ```
+- Add write permission to a bash script
+```sh
+$ chmod +w [script_name].sh
+```
 - Execute bash script: 
 ```sh
 $ ./[script_name].sh
