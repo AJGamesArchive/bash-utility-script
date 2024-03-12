@@ -64,6 +64,21 @@ $ chmod +x [script_name].sh
 $ ./[script_name].sh
 ```
 
+## MAN Page
+
+- Copy MAN script into correct file:
+```sh
+$ sudo cp script_name.1 /usr/share/man/man1/
+```
+- Remove an old MAN page
+```sh
+$ sudo rm /usr/share/man/man1/script_name.1
+```
+- Update MAN page index:
+```sh
+$ sudo mandb
+```
+
 ## SSH Connection to GitHub
 
 - Install Git:
