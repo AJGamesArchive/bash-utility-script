@@ -85,20 +85,38 @@ count_file_types() {
 
 # Function to count collective size of each file type in _Directory #! Fix this function!!
 count_file_type_size() {
+    log "$LOG_INFO" "Counting the collective file size for each unique file type"
     shopt -s globstar
     # Associative array to store total size for each file type
     declare -A file_sizes
+    # Loop through all files in the directory and its subdirectories
+    for file in "$_DIRECTORY"/**/*; do
+        if [ -f "$file" ]; then
+            # Get the file extension
+            extension="${file##*.}"
+            # Get the size of the file
+            size=$(stat -c %s "$file")
+            # Add the size to the total for the corresponding file type
+            file_sizes["$extension"]=$(( ${file_sizes["$extension"]} + size ))
+        fi
+    done
+    # Loop through all command args
     for arg in "${args[@]}"; do
         # Output results to log file AND terminal if arg is present
         if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Counting the collective file size for each unique file type"
-            #? Put things here
+            log "$LOG_INFO" "Printing results to terminal"
+            # Print the total size for each file type to log file AND terminal
+            for extension in "${!file_sizes[@]}"; do
+                echo "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes"
+                echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
+            done
             return 0
         fi
     done
-    log "$LOG_INFO" "Counting the collective file size for each unique file type"
-    #? Put things here
-    >> "$LOG_FILE"
+    # Print the total size for each file type to log file
+    for extension in "${!file_sizes[@]}"; do
+        echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
+    done
 }
 
 # Function to count the total collective space used in _Directory, in human readable format
@@ -183,7 +201,7 @@ uuid_controller() {
     esac
 }
 
-# Function to control the evaldir command
+# Function to control the evaldir command.
 evaldir_controller() {
     # Ensure command has at least 2 args
     expected_args ">" 2
@@ -197,24 +215,29 @@ evaldir_controller() {
             count_file_types
             echo "File type counting complete"
             log "$LOG_INFO" "File type counting complete"
+            continue
         fi
         # Count collective size of each file type in the directory if arg is provided
         if [ "$arg" == "-cts" ]; then
             count_file_type_size
             echo "Collective file type size counting complete"
             log "$LOG_INFO" "Collective file type size counting complete"
+            continue
         fi
         # Count the total space used, in human readable format, in the direcotry if arg is provided
         if [ "$arg" == "-t" ]; then
             count_total_space
+            continue
         fi
         # Count and find the shortest file name(s) in directory if arg is provided
         if [ "$arg" == "-fs" ]; then
             find_shortest_filename
+            continue
         fi
         # Count and find the largest file name(s) in directory if arg is provided
         if [ "$arg" == "-fl" ]; then
             find_largest_filename
+            continue
         fi
     done
 }
