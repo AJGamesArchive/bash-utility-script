@@ -39,15 +39,57 @@ error() {
 
 # Function to check for valid args count
 expected_args() {
-    local expected_count="$@"
-    if [ ${#args[@]} -ne $expected_count ]; then
-        error 0 # Invalid args
-        return 1 # Returns 1 for invalid args
-    fi
+    local operator="$1"
+    local expected_count="$2"
+    case $operator in
+        "<") # Less than
+            if [ ${#args[@]} -le $expected_count ]; then
+                error 0 # Invalid args
+                return 1 # Returns 1 for invalid args
+            fi
+            ;;
+        ">") # Greater than
+            if [ ${#args[@]} -ge $expected_count ]; then
+                error 0 # Invalid args
+                return 1 # Returns 1 for invalid args
+            fi
+            ;;
+        *) # Equal to
+            if [ ${#args[@]} -ne $expected_count ]; then
+                error 0 # Invalid args
+                return 1 # Returns 1 for invalid args
+            fi
+            ;;
+    esac
     return 0 # Returns 0 for valid args
 }
 
 #? Command Utility Functions
+
+# Function to count how many of each file types are present in _Direcotry
+count_file_types() {
+    return 1
+}
+
+# Function to count collective size of each file type in _Directory
+count_file_type_size() {
+    return 1
+}
+
+# Function to count the total collective space used in _Directory, in human readable format
+count_total_space() {
+    return 1
+}
+
+# Function to count and find the shortest file name(s) in _Directory
+find_shortest_filename() {
+    return 1
+}
+
+# Function to count and find the largest file name(s) in _Directory
+find_largest_filename() {
+    return 1
+}
 
 # Function to delete all old log files
 delete_old_logs() {
@@ -94,7 +136,7 @@ delete_old_logs() {
 # Function to control the UUID command
 uuid_controller() {
     # Ensure command has 2 args
-    expected_args 2
+    expected_args "=" 2
     if [ $? -eq 1 ]; then
         return 1
     fi
@@ -116,10 +158,42 @@ uuid_controller() {
     esac
 }
 
+# Function to control the evaldir command
+evaldir_controller() {
+    # Ensure command has at least 2 args
+    expected_args ">" 2
+    if [ $? -eq 1 ]; then
+        return 1
+    fi
+    # Perform functions per argument given
+    for arg in "$@"; do
+        # Count how many of each file types are present in the directory if arg is provided
+        if [ "$arg" -eq "-ct" ]; then
+            count_file_types
+        fi
+        # Count collective size of each file type in the directory if arg is provided
+        if [ "$arg" -eq "-cts" ]; then
+            count_file_type_size
+        fi
+        # Count the total space used, in human readable format, in the direcotry if arg is provided
+        if [ "$arg" -eq "-t" ]; then
+            count_total_space
+        fi
+        # Count and find the shortest file name(s) in directory if arg is provided
+        if [ "$arg" -eq "-fs" ]; then
+            find_shortest_filename
+        fi
+        # Count and find the largest file name(s) in directory if arg is provided
+        if [ "$arg" -eq "-fl" ]; then
+            find_largest_filename
+        fi
+    done
+}
+
 # Function to control the log command
 log_controller() {
     # Ensure command has 2 args
-    expected_args 2
+    expected_args "=" 2
     if [ $? -eq 1 ]; then
         return 1
     fi
@@ -143,7 +217,7 @@ help_controller() {
 # Function to control the exit command
 exit_controller() {
     # Ensure command has 2 args
-    expected_args 2
+    expected_args "=" 2
     if [ $? -eq 1 ]; then
         return 1
     fi
@@ -185,6 +259,7 @@ while true; do
     # Promped the user to select a utility
     echo "Select a utility:"
     echo "'uuid' - Generate a UUID [-v1, -v4]"
+    echo "'evaldir' - Evalulate '_Directory' [-ct, -cts, -t, -fs, -fl, -p]"
     echo "'log' - Manage Log Files [-c]"
     echo "'help' - Open MAN Page"
     echo "'exit' - Exit Script [-0, -1]"
@@ -195,6 +270,9 @@ while true; do
     case ${args[0]} in 
         "uuid" | "id")
             uuid_controller
+            ;;
+        "evaldir" | "ed")
+            evaldir_controller
             ;;
         "exit" | "e")
             exit_controller
