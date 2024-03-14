@@ -2,6 +2,9 @@
 
 #? Log File Setup
 
+# Setting up default _Directory file
+_DIRECTORY="_Directory"
+
 # Setup a file to append logs to
 CURRENT_DATE=$(date +"%Y-%m-%d %H:%M:%S")
 LOG_DIR="_Logs"
@@ -72,17 +75,30 @@ count_file_types() {
         # Output results to log file AND terminal if arg is present
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Counting occurence of all unique file types in _Directory and outputting to terminal"
-            find _Directory -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
+            find $_DIRECTORY -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
             return 0
         fi
     done
     log "$LOG_INFO" "Counting occurence of all unique file types in _Directory"
-    find _Directory -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
+    find $_DIRECTORY -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
 }
 
-# Function to count collective size of each file type in _Directory
+# Function to count collective size of each file type in _Directory #! Fix this function!!
 count_file_type_size() {
-    return 1
+    shopt -s globstar
+    # Associative array to store total size for each file type
+    declare -A file_sizes
+    for arg in "${args[@]}"; do
+        # Output results to log file AND terminal if arg is present
+        if [ "$arg" == "-p" ]; then
+            log "$LOG_INFO" "Counting the collective file size for each unique file type"
+            #? Put things here
+            return 0
+        fi
+    done
+    log "$LOG_INFO" "Counting the collective file size for each unique file type"
+    #? Put things here
+    >> "$LOG_FILE"
 }
 
 # Function to count the total collective space used in _Directory, in human readable format
@@ -185,6 +201,8 @@ evaldir_controller() {
         # Count collective size of each file type in the directory if arg is provided
         if [ "$arg" == "-cts" ]; then
             count_file_type_size
+            echo "Collective file type size counting complete"
+            log "$LOG_INFO" "Collective file type size counting complete"
         fi
         # Count the total space used, in human readable format, in the direcotry if arg is provided
         if [ "$arg" == "-t" ]; then
