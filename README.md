@@ -38,7 +38,7 @@ This is where you need to point your solution to analyse the contents as part of
     - Check if previous UUID exists and see if collision
     - Check when last UUID was generated
   - Categorise content in `_Directory`:
-    - For each child directory report how many of each file type there and collective size of each file type
+    - ~~For each child directory report how many of each file type there~~ and collective size of each file type
     - For each child directory specify total space used, in human readable format
     - For each child directory report find shortest and largest length of file name
     - Output results to file AND option to return to terminal

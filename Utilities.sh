@@ -43,13 +43,13 @@ expected_args() {
     local expected_count="$2"
     case $operator in
         "<") # Less than
-            if [ ${#args[@]} -le $expected_count ]; then
+            if [ ${#args[@]} -gt $expected_count ]; then
                 error 0 # Invalid args
                 return 1 # Returns 1 for invalid args
             fi
             ;;
         ">") # Greater than
-            if [ ${#args[@]} -ge $expected_count ]; then
+            if [ ${#args[@]} -lt $expected_count ]; then
                 error 0 # Invalid args
                 return 1 # Returns 1 for invalid args
             fi
@@ -68,7 +68,16 @@ expected_args() {
 
 # Function to count how many of each file types are present in _Direcotry
 count_file_types() {
-    return 1
+    for arg in "${args[@]}"; do
+        # Output results to log file AND terminal if arg is present
+        if [ "$arg" == "-p" ]; then
+            log "$LOG_INFO" "Counting occurence of all unique file types in _Directory and outputting to terminal"
+            find _Directory -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
+            return 0
+        fi
+    done
+    log "$LOG_INFO" "Counting occurence of all unique file types in _Directory"
+    find _Directory -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
 }
 
 # Function to count collective size of each file type in _Directory
@@ -166,25 +175,27 @@ evaldir_controller() {
         return 1
     fi
     # Perform functions per argument given
-    for arg in "$@"; do
+    for arg in "${args[@]}"; do
         # Count how many of each file types are present in the directory if arg is provided
-        if [ "$arg" -eq "-ct" ]; then
+        if [ "$arg" == "-ct" ]; then
             count_file_types
+            echo "File type counting complete"
+            log "$LOG_INFO" "File type counting complete"
         fi
         # Count collective size of each file type in the directory if arg is provided
-        if [ "$arg" -eq "-cts" ]; then
+        if [ "$arg" == "-cts" ]; then
             count_file_type_size
         fi
         # Count the total space used, in human readable format, in the direcotry if arg is provided
-        if [ "$arg" -eq "-t" ]; then
+        if [ "$arg" == "-t" ]; then
             count_total_space
         fi
         # Count and find the shortest file name(s) in directory if arg is provided
-        if [ "$arg" -eq "-fs" ]; then
+        if [ "$arg" == "-fs" ]; then
             find_shortest_filename
         fi
         # Count and find the largest file name(s) in directory if arg is provided
-        if [ "$arg" -eq "-fl" ]; then
+        if [ "$arg" == "-fl" ]; then
             find_largest_filename
         fi
     done
@@ -248,21 +259,21 @@ echo "Script Started"
 # Login to the system
 read -p "Enter your name to login: " -a args
 log "$LOG_INFO" "${args[@]} has logged in"
-log "$LOG_INFO" "Listing machine User details \n$(w -s)"
+log "$LOG_INFO" "Listing machine user details \n$(w -s)"
 
 #? Main Menu Loop
 
 echo "Utility Script";
+echo "'uuid' - Generate a UUID [-v1, -v4]"
+echo "'evaldir' - Evalulate '_Directory' [-ct, -cts, -t, -fs, -fl, -p]"
+echo "'log' - Manage Log Files [-c]"
+echo "'help' - Open MAN Page"
+echo "'exit' - Exit Script [-0, -1]"
 
 # Script Main Menu
 while true; do
     # Promped the user to select a utility
     echo "Select a utility:"
-    echo "'uuid' - Generate a UUID [-v1, -v4]"
-    echo "'evaldir' - Evalulate '_Directory' [-ct, -cts, -t, -fs, -fl, -p]"
-    echo "'log' - Manage Log Files [-c]"
-    echo "'help' - Open MAN Page"
-    echo "'exit' - Exit Script [-0, -1]"
     read -p ": " -a args
     log "$LOG_INFO" "Command executed: '${args[@]}'"
 
