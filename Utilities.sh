@@ -23,6 +23,7 @@ log() {
     local state="$1"
     local message="${@:2}"
     echo -e "$(date +"%Y-%m-%d %H:%M:%S") - [$state] $message" >> "$LOG_FILE"
+    return 0 # Returns 0 for process compelted
 }
 
 # Function to log common errors
@@ -38,6 +39,7 @@ error() {
             log "$LOG_ERROR" "Command '$args' does not exist. Run 'help' for details on commands and args."
             ;;
     esac
+    return 0 # Returns 0 for process compelted
 }
 
 # Function to check for valid args count
@@ -76,14 +78,15 @@ count_file_types() {
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Counting occurence of all unique file types in _Directory and outputting to terminal"
             find $_DIRECTORY -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
-            return 0
+            return 0 # Returns 0 for process compelted
         fi
     done
     log "$LOG_INFO" "Counting occurence of all unique file types in _Directory"
     find $_DIRECTORY -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
+    return 0 # Returns 0 for process compelted
 }
 
-# Function to count collective size of each file type in _Directory #! Fix this function!!
+# Function to count collective size of each file type in _Directory
 count_file_type_size() {
     log "$LOG_INFO" "Counting the collective file size for each unique file type"
     shopt -s globstar
@@ -110,13 +113,14 @@ count_file_type_size() {
                 echo "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes"
                 echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
             done
-            return 0
+            return 0 # Returns 0 for process compelted
         fi
     done
     # Print the total size for each file type to log file
     for extension in "${!file_sizes[@]}"; do
         echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
     done
+    return 0 # Returns 0 for process compelted
 }
 
 # Function to count the total collective space used in _Directory, in human readable format
@@ -172,6 +176,7 @@ delete_old_logs() {
                 ;;
         esac
     done
+    return 0 # Returns 0 for process compelted
 }
 
 #? Command Controller Functions
@@ -199,6 +204,7 @@ uuid_controller() {
             error 0 # Invalid args
             ;;
     esac
+    return 0 # Returns 0 for process compelted
 }
 
 # Function to control the evaldir command.
@@ -240,6 +246,7 @@ evaldir_controller() {
             continue
         fi
     done
+    return 0 # Returns 0 for process compelted
 }
 
 # Function to control the log command
@@ -258,12 +265,14 @@ log_controller() {
             error 0 # Invalid args
             ;;
     esac
+    return 0 # Returns 0 for process compelted
 }
 
 # Function to control the help command
 help_controller() {
     log "$LOG_ERROR" "MAN page not implemented yet"
     echo "ERROR: MAN page not implemented yet."
+    return 0 # Returns 0 for process compelted
 }
 
 # Function to control the exit command
@@ -289,6 +298,7 @@ exit_controller() {
             error 0 # Invalid args
             ;;
     esac
+    return 0 # Returns 0 for process compelted
 }
 
 #? Script Login
@@ -317,7 +327,6 @@ while true; do
     echo "Select a utility:"
     read -p ": " -a args
     log "$LOG_INFO" "Command executed: '${args[@]}'"
-
     # Check the first argument provided
     case ${args[0]} in 
         "uuid" | "id")
