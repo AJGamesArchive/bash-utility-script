@@ -128,14 +128,29 @@ count_total_space() {
     return 1
 }
 
-# Function to count and find the shortest file name(s) in _Directory
-find_shortest_filename() {
-    log "$LOG_INFO" "Searching for the shortest file names and lengths"
-    log "$LOG_INFO" "Counting filenames excluding directory file paths and file extentions"
+# Function to count and find the shortest or largest file name(s) in _Directory depending on given args
+filename_search() {
+    # Enable for looping through subdirectorys within direcotrys with the /**/* syntax
     shopt -s globstar
-    # Declaring vairables to store file names and length(s)
-    local shortest_length=9999999999
-    local shortest_files=()
+    # Take in an arg for either shorest or largest file name search
+    local operation="$@"
+    # Declaring vairables to store file names and shortest langth
+    local files=()
+    case $operation in
+        "shortest")
+            local base_length=9999999999
+            ;;
+        "largest")
+            local base_length=0
+            ;;
+        *)
+            error 0 # Invalid args error
+            return 1 # Return 1 for invalid args provided
+            ;;
+    esac
+    # Loging process start
+    log "$LOG_INFO" "Searching for the $operation file names and lengths"
+    log "$LOG_INFO" "Counting filenames excluding directory file paths and file extentions"
     # Loop through all files in the directory and its subdirectories
     for file in "$_DIRECTORY"/**/*; do
         if [ -f "$file" ]; then
@@ -145,12 +160,25 @@ find_shortest_filename() {
             filename_no_extension="${filename%.*}"
             # Get the length of the file name
             length=${#filename_no_extension}
-            # Update shortest length if current file name is shorter
-            if [ "$length" -lt "$shortest_length" ]; then
-                shortest_length="$length"
-                shortest_files=("$file")
-            elif [ "$length" -eq "$shortest_length" ]; then
-                shortest_files+=("$file")
+            case $operation in
+                "shortest")
+                    # Update shortest length if current file name is shorter
+                    if [ "$length" -lt "$base_length" ]; then
+                        base_length="$length"
+                        files=("$file")
+                    fi
+                    ;;
+                "largest")
+                    # Update longest length if current file name is longer
+                    if [ "$length" -gt "$base_length" ]; then
+                        base_length="$length"
+                        files=("$file")
+                    fi
+                    ;;
+            esac
+            # Add file to array if it's file name is the same length as current target
+            if [ "$length" -eq "$base_length" ]; then
+                files+=("$file")
             fi
         fi
     done
@@ -159,72 +187,20 @@ find_shortest_filename() {
         # Output results to log file AND terminal if arg is present
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Printing results to terminal"
-            echo "Shortest file name length: $shortest_length"
-            log "$LOG_INFO" "Shortest file name length: $shortest_length"
-            echo "${#shortest_files[@]} shortest file(s):"
-            log "$LOG_INFO" "${#shortest_files[@]} shortest file(s):"
-            for file in "${shortest_files[@]}"; do
+            echo "$operation file name length: $base_length"
+            log "$LOG_INFO" "$operation file name length: $base_length"
+            echo "${#files[@]} $operation file(s):"
+            log "$LOG_INFO" "${#files[@]} $operation file(s):"
+            for file in "${files[@]}"; do
                 echo "$file"
                 echo -e "$file" >> "$LOG_FILE"
             done
             return 0 # Returns 0 for process compelted
         fi
     done
-    log "$LOG_INFO" "Shortest file name length: $shortest_length"
-    log "$LOG_INFO" "${#shortest_files[@]} shortest file(s):"
-    for file in "${shortest_files[@]}"; do
-        echo -e "$file" >> "$LOG_FILE"
-    done
-    return 0 # Returns 0 for process compelted
-}
-
-# TODO Merg the shortest and largest file name function into 1 function that uses the command args to defrentiate shortest VS largest 
-
-# Function to count and find the largest file name(s) in _Directory
-find_largest_filename() {
-    log "$LOG_INFO" "Searching for the largest file names and lengths"
-    log "$LOG_INFO" "Counting filenames excluding directory file paths and file extentions"
-    shopt -s globstar
-    # Declaring vairables to store file names and length(s)
-    local largest_length=0
-    local largest_files=()
-    # Loop through all files in the directory and its subdirectories
-    for file in "$_DIRECTORY"/**/*; do
-        if [ -f "$file" ]; then
-            # Get the file name without the directory path
-            filename=$(basename "$file")
-            # Remove the file extension from the file name
-            filename_no_extension="${filename%.*}"
-            # Get the length of the file name
-            length=${#filename_no_extension}
-            # Update shortest length if current file name is shorter
-            if [ "$length" -gt "$largest_length" ]; then
-                largest_length="$length"
-                largest_files=("$file")
-            elif [ "$length" -eq "$largest_length" ]; then
-                largest_files+=("$file")
-            fi
-        fi
-    done
-    # Loop through all command args
-    for arg in "${args[@]}"; do
-        # Output results to log file AND terminal if arg is present
-        if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Printing results to terminal"
-            echo "Largest file name length: $largest_length"
-            log "$LOG_INFO" "Largest file name length: $largest_length"
-            echo "${#largest_files[@]} largest file(s):"
-            log "$LOG_INFO" "${#largest_files[@]} largest file(s):"
-            for file in "${largest_files[@]}"; do
-                echo "$file"
-                echo -e "$file" >> "$LOG_FILE"
-            done
-            return 0 # Returns 0 for process compelted
-        fi
-    done
-    log "$LOG_INFO" "Largest file name length: $largest_length"
-    log "$LOG_INFO" "${#largest_files[@]} largest file(s):"
-    for file in "${largest_files[@]}"; do
+    log "$LOG_INFO" "$operation file name length: $base_length"
+    log "$LOG_INFO" "${#files[@]} $operation file(s):"
+    for file in "${files[@]}"; do
         echo -e "$file" >> "$LOG_FILE"
     done
     return 0 # Returns 0 for process compelted
@@ -329,14 +305,14 @@ evaldir_controller() {
         fi
         # Count and find the shortest file name(s) in directory if arg is provided
         if [ "$arg" == "-fs" ]; then
-            find_shortest_filename
+            filename_search "shortest"
             echo "Shortest file name search complete"
             log "$LOG_INFO" "Shortest file name search complete"
             continue
         fi
         # Count and find the largest file name(s) in directory if arg is provided
         if [ "$arg" == "-fl" ]; then
-            find_largest_filename
+            filename_search "largest"
             echo "Largest file name search complete"
             log "$LOG_INFO" "Largest file name search complete"
             continue
