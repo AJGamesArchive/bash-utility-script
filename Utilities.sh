@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Enable for looping through subdirectorys within direcotrys with the /**/* syntax
+shopt -s globstar
+
 #? Log File Setup
 
 # Setting up default _Directory file
@@ -71,25 +74,31 @@ expected_args() {
 
 #? Command Utility Functions
 
-# Function to count how many of each file types are present in _Direcotry
+# Function to count how many of each file types are present in as given directory
 count_file_types() {
+    # Variable to take in a file path as an arg
+    local directory=$1
+    # Loop through command args
     for arg in "${args[@]}"; do
         # Output results to log file AND terminal if arg is present
         if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Counting occurence of all unique file types in _Directory and outputting to terminal"
-            find $_DIRECTORY -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
+            log "$LOG_INFO" "Counting occurence of all unique file types in $directory and outputting to terminal"
+            echo "$directory/:"
+            echo -e "$directory/:" >> "$LOG_FILE"
+            find $directory -maxdepth 1 -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
             return 0 # Returns 0 for process compelted
         fi
     done
-    log "$LOG_INFO" "Counting occurence of all unique file types in _Directory"
-    find $_DIRECTORY -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
+    log "$LOG_INFO" "Counting occurence of all unique file types in $directory"
+    echo -e "$directory/:" >> "$LOG_FILE"
+    find $directory -maxdepth 1 -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
     return 0 # Returns 0 for process compelted
 }
 
 # Function to count collective size of each file type in _Directory
+# TODO Update to execute per child directory
 count_file_type_size() {
     log "$LOG_INFO" "Counting the collective file size for each unique file type"
-    shopt -s globstar
     # Associative array/dictionary to store total size for each file type
     declare -A file_sizes
     # Loop through all files in the directory and its subdirectories
@@ -133,8 +142,8 @@ count_file_type_size() {
 }
 
 # Function to count the total collective space used in _Directory, in human readable format
+# TODO Update to execute per child directory
 count_total_space() {
-    shopt -s globstar
     log "$LOG_INFO" "Calculating total file space used"
     # Variable to store total file size
     total_size=0
@@ -162,9 +171,8 @@ count_total_space() {
 }
 
 # Function to count and find the shortest or largest file name(s) in _Directory depending on given args
+# TODO Update to execute per child directory
 filename_search() {
-    # Enable for looping through subdirectorys within direcotrys with the /**/* syntax
-    shopt -s globstar
     # Take in an arg for either shorest or largest file name search
     local operation="$@"
     # Declaring vairables to store file names and shortest langth
@@ -326,10 +334,18 @@ evaldir_controller() {
             command_arg=false
             continue
         fi
+        if [ "$arg" == "-p" ]; then
+            continue
+        fi
         log "$LOG_INFO" "Executing Arg '$arg'"
-        # Count how many of each file types are present in the directory if arg is provided
+        # Count how many of each file types are present in the directory and all sub directoryies if arg is provided
         if [ "$arg" == "-ct" ]; then
-            count_file_types
+            count_file_types "$_DIRECTORY"
+            for file in $_DIRECTORY/**/*; do
+                if [ -d "$file" ]; then
+                    count_file_types "$file"
+                fi
+            done
             echo "File type counting complete"
             log "$LOG_INFO" "File type counting complete"
             continue
