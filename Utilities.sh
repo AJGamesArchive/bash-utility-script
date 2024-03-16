@@ -103,6 +103,12 @@ count_file_type_size() {
             file_sizes["$extension"]=$(( ${file_sizes["$extension"]} + size ))
         fi
     done
+    # Convert total size from bytes to MB * 100
+    # This number will be divided by 100 and formatted to 2 DP upon output using printf
+    declare -A file_sizes_mb
+    for extension in "${!file_sizes[@]}"; do
+        file_sizes_mb["$extension"]=$(( (${file_sizes["$extension"]} * 100) / (1024 * 1024) ))
+    done
     # Loop through all command args
     for arg in "${args[@]}"; do
         # Output results to log file AND terminal if arg is present
@@ -112,6 +118,8 @@ count_file_type_size() {
             for extension in "${!file_sizes[@]}"; do
                 echo "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes"
                 echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
+                echo "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB"
+                echo -e "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB" >> "$LOG_FILE"
             done
             return 0 # Returns 0 for process compelted
         fi
@@ -119,6 +127,7 @@ count_file_type_size() {
     # Print the total size for each file type to log file
     for extension in "${!file_sizes[@]}"; do
         echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
+        echo -e "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB" >> "$LOG_FILE"
     done
     return 0 # Returns 0 for process compelted
 }
@@ -135,19 +144,20 @@ count_total_space() {
             total_size=$((total_size + size))
         fi
     done
-    # Convert total size from bytes to MB
-    total_size_mb=$(( $total_size / (1024 * 1024) ))
+    # Convert total size from bytes to MB * 100
+    # This number will be divided by 100 and formatted to 2 DP upon output using printf
+    total_size_mb=$(( ($total_size * 100) / (1024 * 1024) ))
     # Loop through all command args
     for arg in "${args[@]}"; do
         # Output results to log file AND terminal if arg is present
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Printing results to terminal"
             echo "Total space used by '$_DIRECTORY': $total_size bytes"
-            echo "Total space used by '$_DIRECTORY': $total_size_mb MB"
+            echo "Total space used by '$_DIRECTORY': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB"
         fi
     done
-    log "$LOG_INFO" "Total space used by '$_DIRECTORY': $total_size bytes"
-    log "$LOG_INFO" "Total space used by '$_DIRECTORY': $total_size_mb MB"
+    echo -e "Total space used by '$_DIRECTORY': $total_size bytes" >> "$LOG_FILE"
+    echo -e "Total space used by '$_DIRECTORY': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB" >> "$LOG_FILE"
     return 0 # Return 0 for process complete
 }
 
@@ -282,16 +292,19 @@ uuid_controller() {
     # Check the second args for UUID generation
     case ${args[1]} in
         "-v1") # Generate version 1
+            log "$LOG_INFO" "Executing Arg '${args[1]}'"
             UUID=$(uuidgen -t)
             echo "Generated UUID (version 1): $UUID"
             log "$LOG_INFO" "Generated UUID (version 1): $UUID"
             ;;
         "-v4") # Generate version 4
+            log "$LOG_INFO" "Executing Arg '${args[1]}'"
             UUID=$(uuidgen)
             echo "Generated UUID (version 4): $UUID"
             log "$LOG_INFO" "Generated UUID (version 4): $UUID"
             ;;
         *)
+            log "$LOG_INFO" "Executing Arg '${args[1]}'"
             error 0 # Invalid args
             ;;
     esac
@@ -307,7 +320,13 @@ evaldir_controller() {
     fi
     log "$LOG_INFO" "Analyzing '$_DIRECTORY'"
     # Perform functions per argument given
+    command_arg=true
     for arg in "${args[@]}"; do
+        if [ $command_arg == true ]; then
+            command_arg=false
+            continue
+        fi
+        log "$LOG_INFO" "Executing Arg '$arg'"
         # Count how many of each file types are present in the directory if arg is provided
         if [ "$arg" == "-ct" ]; then
             count_file_types
@@ -343,6 +362,10 @@ evaldir_controller() {
             log "$LOG_INFO" "Largest file name search complete"
             continue
         fi
+        log "$LOG_WARNING" "Arg '$arg' is invalid"
+        log "$LOG_INFO" "Continueing to next arg"
+        echo "WARNING: Arg '$arg' is invalid"
+        echo "Continueing to next arg"
     done
     return 0 # Returns 0 for process compelted
 }
@@ -357,9 +380,11 @@ log_controller() {
     # Check the second args for log management
     case ${args[1]} in
         "-c") # Delete all previous log files
+            log "$LOG_INFO" "Executing Arg '${args[1]}'"
             delete_old_logs
             ;;
         *)
+            log "$LOG_INFO" "Executing Arg '${args[1]}'"
             error 0 # Invalid args
             ;;
     esac
@@ -383,16 +408,19 @@ exit_controller() {
     # Check the second args for exit command
     case ${args[1]} in
         "-0") # Exit with code 0 - Process completed
+            log "$LOG_INFO" "Executing Arg '${args[1]}'"
             log "$LOG_INFO" "Script exited with code 0"
             echo "Script Exiting... (0)"
             exit 0
             ;;
         "-1") # Exit with code 1 - Process failed
+            log "$LOG_INFO" "Executing Arg '${args[1]}'"
             log "$LOG_ERROR" "Script exited with code 1"
             echo "Script Exiting... (1)"
             exit 1
             ;;
         *)
+            log "$LOG_INFO" "Executing Arg '${args[1]}'"
             error 0 # Invalid args
             ;;
     esac
