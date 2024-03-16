@@ -90,7 +90,7 @@ count_file_types() {
 count_file_type_size() {
     log "$LOG_INFO" "Counting the collective file size for each unique file type"
     shopt -s globstar
-    # Associative array to store total size for each file type
+    # Associative array/dictionary to store total size for each file type
     declare -A file_sizes
     # Loop through all files in the directory and its subdirectories
     for file in "$_DIRECTORY"/**/*; do
@@ -125,7 +125,30 @@ count_file_type_size() {
 
 # Function to count the total collective space used in _Directory, in human readable format
 count_total_space() {
-    return 1
+    shopt -s globstar
+    log "$LOG_INFO" "Calculating total file space used"
+    # Variable to store total file size
+    total_size=0
+    for file in "$_DIRECTORY"/**/*; do
+        if [ -f "$file" ]; then
+            size=$(stat -c "%s" "$file")
+            total_size=$((total_size + size))
+        fi
+    done
+    # Convert total size from bytes to MB
+    total_size_mb=$(( $total_size / (1024 * 1024) ))
+    # Loop through all command args
+    for arg in "${args[@]}"; do
+        # Output results to log file AND terminal if arg is present
+        if [ "$arg" == "-p" ]; then
+            log "$LOG_INFO" "Printing results to terminal"
+            echo "Total space used by '$_DIRECTORY': $total_size bytes"
+            echo "Total space used by '$_DIRECTORY': $total_size_mb MB"
+        fi
+    done
+    log "$LOG_INFO" "Total space used by '$_DIRECTORY': $total_size bytes"
+    log "$LOG_INFO" "Total space used by '$_DIRECTORY': $total_size_mb MB"
+    return 0 # Return 0 for process complete
 }
 
 # Function to count and find the shortest or largest file name(s) in _Directory depending on given args
@@ -282,6 +305,7 @@ evaldir_controller() {
     if [ $? -eq 1 ]; then
         return 1
     fi
+    log "$LOG_INFO" "Analyzing '$_DIRECTORY'"
     # Perform functions per argument given
     for arg in "${args[@]}"; do
         # Count how many of each file types are present in the directory if arg is provided
@@ -301,6 +325,8 @@ evaldir_controller() {
         # Count the total space used, in human readable format, in the direcotry if arg is provided
         if [ "$arg" == "-t" ]; then
             count_total_space
+            echo "Total space calculated successfully"
+            log "$LOG_INFO" "Total space calculated successfully"
             continue
         fi
         # Count and find the shortest file name(s) in directory if arg is provided
