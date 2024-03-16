@@ -96,13 +96,14 @@ count_file_types() {
 }
 
 # Function to count collective size of each file type in _Directory
-# TODO Update to execute per child directory
 count_file_type_size() {
-    log "$LOG_INFO" "Counting the collective file size for each unique file type"
+    # Variable to take in a file path as an arg
+    local directory=$1
+    log "$LOG_INFO" "Counting the collective file size for each unique file type in $directory"
     # Associative array/dictionary to store total size for each file type
     declare -A file_sizes
     # Loop through all files in the directory and its subdirectories
-    for file in "$_DIRECTORY"/**/*; do
+    for file in "$directory"/*; do
         if [ -f "$file" ]; then
             # Get the file extension
             extension="${file##*.}"
@@ -123,6 +124,8 @@ count_file_type_size() {
         # Output results to log file AND terminal if arg is present
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Printing results to terminal"
+            echo "$directory/:"
+            echo -e "$directory/:" >> "$LOG_FILE"
             # Print the total size for each file type to log file AND terminal
             for extension in "${!file_sizes[@]}"; do
                 echo "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes"
@@ -134,6 +137,7 @@ count_file_type_size() {
         fi
     done
     # Print the total size for each file type to log file
+    echo -e "$directory/:" >> "$LOG_FILE"
     for extension in "${!file_sizes[@]}"; do
         echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
         echo -e "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB" >> "$LOG_FILE"
@@ -142,12 +146,13 @@ count_file_type_size() {
 }
 
 # Function to count the total collective space used in _Directory, in human readable format
-# TODO Update to execute per child directory
 count_total_space() {
-    log "$LOG_INFO" "Calculating total file space used"
+    # Variable to take in a file path as an arg
+    local directory=$1
+    log "$LOG_INFO" "Calculating total file space used in $directory"
     # Variable to store total file size
     total_size=0
-    for file in "$_DIRECTORY"/**/*; do
+    for file in "$directory"/*; do
         if [ -f "$file" ]; then
             size=$(stat -c "%s" "$file")
             total_size=$((total_size + size))
@@ -161,20 +166,21 @@ count_total_space() {
         # Output results to log file AND terminal if arg is present
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Printing results to terminal"
-            echo "Total space used by '$_DIRECTORY': $total_size bytes"
-            echo "Total space used by '$_DIRECTORY': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB"
+            echo "Total space used by '$directory': $total_size bytes"
+            echo "Total space used by '$directory': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB"
         fi
     done
-    echo -e "Total space used by '$_DIRECTORY': $total_size bytes" >> "$LOG_FILE"
-    echo -e "Total space used by '$_DIRECTORY': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB" >> "$LOG_FILE"
+    echo -e "Total space used by '$directory': $total_size bytes" >> "$LOG_FILE"
+    echo -e "Total space used by '$directory': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB" >> "$LOG_FILE"
     return 0 # Return 0 for process complete
 }
 
 # Function to count and find the shortest or largest file name(s) in _Directory depending on given args
-# TODO Update to execute per child directory
 filename_search() {
+    # Variable to take in a file path as an arg
+    local directory=$1
     # Take in an arg for either shorest or largest file name search
-    local operation="$@"
+    local operation="$2"
     # Declaring vairables to store file names and shortest langth
     local files=()
     case $operation in
@@ -190,10 +196,10 @@ filename_search() {
             ;;
     esac
     # Loging process start
-    log "$LOG_INFO" "Searching for the $operation file names and lengths"
+    log "$LOG_INFO" "Searching for the '$operation' file names and lengths in '$directory'"
     log "$LOG_INFO" "Counting filenames excluding directory file paths and file extentions"
     # Loop through all files in the directory and its subdirectories
-    for file in "$_DIRECTORY"/**/*; do
+    for file in "$directory"/*; do
         if [ -f "$file" ]; then
             # Get the file name without the directory path
             filename=$(basename "$file")
@@ -223,6 +229,10 @@ filename_search() {
             fi
         fi
     done
+    # If searching for shortest files and no files are found, set the base file lenght to 0
+    if [ $base_length -eq 9999999999 ]; then
+        base_length=0
+    fi
     # Loop through all command args
     for arg in "${args[@]}"; do
         # Output results to log file AND terminal if arg is present
@@ -232,6 +242,8 @@ filename_search() {
             log "$LOG_INFO" "$operation file name length: $base_length"
             echo "${#files[@]} $operation file(s):"
             log "$LOG_INFO" "${#files[@]} $operation file(s):"
+            echo "$directory/:"
+            echo -e "$directory/:" >> "$LOG_FILE"
             for file in "${files[@]}"; do
                 echo "$file"
                 echo -e "$file" >> "$LOG_FILE"
@@ -241,6 +253,7 @@ filename_search() {
     done
     log "$LOG_INFO" "$operation file name length: $base_length"
     log "$LOG_INFO" "${#files[@]} $operation file(s):"
+    echo -e "$directory/:" >> "$LOG_FILE"
     for file in "${files[@]}"; do
         echo -e "$file" >> "$LOG_FILE"
     done
@@ -352,28 +365,48 @@ evaldir_controller() {
         fi
         # Count collective size of each file type in the directory if arg is provided
         if [ "$arg" == "-cts" ]; then
-            count_file_type_size
+            count_file_type_size "$_DIRECTORY"
+            for file in $_DIRECTORY/**/*; do
+                if [ -d "$file" ]; then
+                    count_file_type_size "$file"
+                fi
+            done
             echo "Collective file type size counting complete"
             log "$LOG_INFO" "Collective file type size counting complete"
             continue
         fi
         # Count the total space used, in human readable format, in the direcotry if arg is provided
         if [ "$arg" == "-t" ]; then
-            count_total_space
+            count_total_space "$_DIRECTORY"
+            for file in $_DIRECTORY/**/*; do
+                if [ -d "$file" ]; then
+                    count_total_space "$file"
+                fi
+            done
             echo "Total space calculated successfully"
             log "$LOG_INFO" "Total space calculated successfully"
             continue
         fi
         # Count and find the shortest file name(s) in directory if arg is provided
         if [ "$arg" == "-fs" ]; then
-            filename_search "shortest"
+            filename_search "$_DIRECTORY" "shortest"
+            for file in $_DIRECTORY/**/*; do
+                if [ -d "$file" ]; then
+                    filename_search "$file" "shortest"
+                fi
+            done
             echo "Shortest file name search complete"
             log "$LOG_INFO" "Shortest file name search complete"
             continue
         fi
         # Count and find the largest file name(s) in directory if arg is provided
         if [ "$arg" == "-fl" ]; then
-            filename_search "largest"
+            filename_search "$_DIRECTORY" "largest"
+            for file in $_DIRECTORY/**/*; do
+                if [ -d "$file" ]; then
+                    filename_search "$file" "largest"
+                fi
+            done
             echo "Largest file name search complete"
             log "$LOG_INFO" "Largest file name search complete"
             continue
