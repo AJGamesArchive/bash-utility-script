@@ -72,24 +72,67 @@ expected_args() {
     return 0 # Returns 0 for valid args
 }
 
+# Function to check what option args of the 'evaldir' command are present
+check_evaldir_optional_args() {
+    # Variables to store optional arg states
+    local print_to_terminal=false
+    local output_collective=false
+    # Loop through command args to search for option args
+    for arg in "${args[@]}"; do
+        if [ "$arg" == "-p" ]; then
+            print_to_terminal=true
+        fi 
+        if [ "$arg" == "-o" ]; then
+            output_collective=true
+        fi
+    done
+    # Return different codes depending on what args are present
+    if [ $print_to_terminal == true ] && [ $output_collective == true ]; then
+        return 4 # BOTH optional args are present
+    fi
+    if [ $output_collective == true ]; then
+        return 3 # ONLY -o is present
+    fi
+    if [ $print_to_terminal == true ]; then
+        return 2 # ONLY -p is present
+    fi
+    return 1 # NO optional args are present
+}
+
 #? Command Utility Functions
 
 # Function to count how many of each file types are present in as given directory
 count_file_types() {
     # Variable to take in a file path as an arg
     local directory=$1
-    # Loop through command args
-    for arg in "${args[@]}"; do
-        # Output results to log file AND terminal if arg is present
-        if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Counting occurence of all unique file types in $directory and outputting to terminal"
-            echo "$directory/:"
-            echo -e "$directory/:" >> "$LOG_FILE"
-            find $directory -maxdepth 1 -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
-            return 0 # Returns 0 for process compelted
-        fi
-    done
+    # Variables to sore optional arg states
+    local optional_args=$2
+    # Log process action
     log "$LOG_INFO" "Counting occurence of all unique file types in $directory"
+    # Calculate collectively and output to terminal if args are present
+    if [ $optional_args -eq 4 ]; then
+        log "$LOG_INFO" "Counting files in all subdirectory's"
+        log "$LOG_INFO" "Outputting to terminal"
+        echo "$directory/**/*:"
+        echo -e "$directory/**/*:" >> "$LOG_FILE"
+        find $directory -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
+        return 0 # Process completed successfully
+    fi
+    # Calculate collectively if arg is present
+    if [ $optional_args -eq 3 ]; then
+        log "$LOG_INFO" "Counting files in all subdirectory's"
+        echo -e "$directory/**/*:" >> "$LOG_FILE"
+        find $directory -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
+        return 0 # Process completed successfully
+    fi
+    # Outputting to terminal if arg is resent
+    if [ $optional_args -eq 2 ]; then
+        log "$LOG_INFO" "Outputting to terminal"
+        echo "$directory/:"
+        echo -e "$directory/**/*:" >> "$LOG_FILE"
+        find $directory -maxdepth 1 -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
+        return 0 # Process completed successfully
+    fi
     echo -e "$directory/:" >> "$LOG_FILE"
     find $directory -maxdepth 1 -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
     return 0 # Returns 0 for process compelted
@@ -100,48 +143,57 @@ count_file_type_size() {
     # Variable to take in a file path as an arg
     local directory=$1
     log "$LOG_INFO" "Counting the collective file size for each unique file type in $directory"
+    # Variables to sore optional arg states
+    local optional_args=$2
     # Associative array/dictionary to store total size for each file type
     declare -A file_sizes
-    # Loop through all files in the directory and its subdirectories
-    for file in "$directory"/*; do
-        if [ -f "$file" ]; then
-            # Get the file extension
-            extension="${file##*.}"
-            # Get the size of the file
-            size=$(stat -c %s "$file")
-            # Add the size to the total for the corresponding file type
-            file_sizes["$extension"]=$(( ${file_sizes["$extension"]} + size ))
-        fi
-    done
+    # Loop through all files in the directory, include subdirectory's if arg is present
+    if [ $optional_args -eq 3 ] || [ $optional_args -eq 4 ]; then
+        log "$LOG_INFO" "Counting the collective file size for each unique file in all subdirectory's"
+        for file in "$directory"/**/*; do
+            if [ -f "$file" ]; then
+                # Get the file extension
+                extension="${file##*.}"
+                # Get the size of the file
+                size=$(stat -c %s "$file")
+                # Add the size to the total for the corresponding file type
+                file_sizes["$extension"]=$(( ${file_sizes["$extension"]} + size ))
+            fi
+        done
+    else
+        for file in "$directory"/*; do
+            if [ -f "$file" ]; then
+                # Get the file extension
+                extension="${file##*.}"
+                # Get the size of the file
+                size=$(stat -c %s "$file")
+                # Add the size to the total for the corresponding file type
+                file_sizes["$extension"]=$(( ${file_sizes["$extension"]} + size ))
+            fi
+        done
+    fi
     # Convert total size from bytes to MB * 100
     # This number will be divided by 100 and formatted to 2 DP upon output using printf
     declare -A file_sizes_mb
     for extension in "${!file_sizes[@]}"; do
         file_sizes_mb["$extension"]=$(( (${file_sizes["$extension"]} * 100) / (1024 * 1024) ))
     done
-    # Loop through all command args
-    for arg in "${args[@]}"; do
-        # Output results to log file AND terminal if arg is present
-        if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Printing results to terminal"
-            echo "$directory/:"
-            echo -e "$directory/:" >> "$LOG_FILE"
-            # Print the total size for each file type to log file AND terminal
-            for extension in "${!file_sizes[@]}"; do
-                echo "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes"
-                echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
-                echo "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB"
-                echo -e "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB" >> "$LOG_FILE"
-            done
-            return 0 # Returns 0 for process compelted
-        fi
-    done
-    # Print the total size for each file type to log file
+    # Output results
     echo -e "$directory/:" >> "$LOG_FILE"
     for extension in "${!file_sizes[@]}"; do
         echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
         echo -e "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB" >> "$LOG_FILE"
     done
+    # Output to terminal if arg is present
+    if [ $optional_args -eq 2 ] || [ $optional_args -eq 4 ]; then
+        log "$LOG_INFO" "Printing results to terminal"
+        echo "$directory/:"
+        # Print the total size for each file type to terminal
+        for extension in "${!file_sizes[@]}"; do
+            echo "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes"
+            echo "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB"
+        done
+    fi
     return 0 # Returns 0 for process compelted
 }
 
@@ -150,28 +202,39 @@ count_total_space() {
     # Variable to take in a file path as an arg
     local directory=$1
     log "$LOG_INFO" "Calculating total file space used in $directory"
+    # Variables to sore optional arg states
+    local optional_args=$2
     # Variable to store total file size
     total_size=0
-    for file in "$directory"/*; do
-        if [ -f "$file" ]; then
-            size=$(stat -c "%s" "$file")
-            total_size=$((total_size + size))
-        fi
-    done
+    # Loop through all files in the directory, include subdirectory's if arg is present
+    if [ $optional_args -eq 3 ] || [ $optional_args -eq 4 ]; then
+        log "$LOG_INFO" "Calculating total file space used in all subdirectory's"
+        for file in "$directory"/**/*; do
+            if [ -f "$file" ]; then
+                size=$(stat -c "%s" "$file")
+                total_size=$((total_size + size))
+            fi
+        done
+    else
+        for file in "$directory"/*; do
+            if [ -f "$file" ]; then
+                size=$(stat -c "%s" "$file")
+                total_size=$((total_size + size))
+            fi
+        done
+    fi
     # Convert total size from bytes to MB * 100
     # This number will be divided by 100 and formatted to 2 DP upon output using printf
     total_size_mb=$(( ($total_size * 100) / (1024 * 1024) ))
-    # Loop through all command args
-    for arg in "${args[@]}"; do
-        # Output results to log file AND terminal if arg is present
-        if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Printing results to terminal"
-            echo "Total space used by '$directory': $total_size bytes"
-            echo "Total space used by '$directory': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB"
-        fi
-    done
+    # Output results
     echo -e "Total space used by '$directory': $total_size bytes" >> "$LOG_FILE"
     echo -e "Total space used by '$directory': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB" >> "$LOG_FILE"
+    # Output to terminal if arg is present
+    if [ $optional_args -eq 2 ] || [ $optional_args -eq 4 ]; then
+        log "$LOG_INFO" "Printing results to terminal"
+        echo "Total space used by '$directory': $total_size bytes"
+        echo "Total space used by '$directory': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB"
+    fi
     return 0 # Return 0 for process complete
 }
 
@@ -181,6 +244,8 @@ filename_search() {
     local directory=$1
     # Take in an arg for either shorest or largest file name search
     local operation="$2"
+    # Variables to sore optional arg states
+    local optional_args=$3
     # Declaring vairables to store file names and shortest langth
     local files=()
     case $operation in
@@ -198,65 +263,92 @@ filename_search() {
     # Loging process start
     log "$LOG_INFO" "Searching for the '$operation' file names and lengths in '$directory'"
     log "$LOG_INFO" "Counting filenames excluding directory file paths and file extentions"
-    # Loop through all files in the directory and its subdirectories
-    for file in "$directory"/*; do
-        if [ -f "$file" ]; then
-            # Get the file name without the directory path
-            filename=$(basename "$file")
-            # Remove the file extension from the file name
-            filename_no_extension="${filename%.*}"
-            # Get the length of the file name
-            length=${#filename_no_extension}
-            case $operation in
-                "shortest")
-                    # Update shortest length if current file name is shorter
-                    if [ "$length" -lt "$base_length" ]; then
-                        base_length="$length"
-                        files=("$file")
-                    fi
-                    ;;
-                "largest")
-                    # Update longest length if current file name is longer
-                    if [ "$length" -gt "$base_length" ]; then
-                        base_length="$length"
-                        files=("$file")
-                    fi
-                    ;;
-            esac
-            # Add file to array if it's file name is the same length as current target
-            if [ "$length" -eq "$base_length" ]; then
-                files+=("$file")
+    # Loop through all files in the directory, including subdirectory's if arg is present
+    if [ $optional_args -eq 3 ] || [ $optional_args -eq 4 ]; then
+        log "$LOG_INFO" "Searching for the '$operation' file names and lengths in all subdirectory's"
+        for file in "$directory"/**/*; do
+            if [ -f "$file" ]; then
+                # Get the file name without the directory path
+                filename=$(basename "$file")
+                # Remove the file extension from the file name
+                filename_no_extension="${filename%.*}"
+                # Get the length of the file name
+                length=${#filename_no_extension}
+                case $operation in
+                    "shortest")
+                        # Update shortest length if current file name is shorter
+                        if [ "$length" -lt "$base_length" ]; then
+                            base_length="$length"
+                            files=("$file")
+                        fi
+                        ;;
+                    "largest")
+                        # Update longest length if current file name is longer
+                        if [ "$length" -gt "$base_length" ]; then
+                            base_length="$length"
+                            files=("$file")
+                        fi
+                        ;;
+                esac
+                # Add file to array if it's file name is the same length as current target
+                if [ "$length" -eq "$base_length" ]; then
+                    files+=("$file")
+                fi
             fi
-        fi
-    done
+        done
+    else
+        for file in "$directory"/*; do
+            if [ -f "$file" ]; then
+                # Get the file name without the directory path
+                filename=$(basename "$file")
+                # Remove the file extension from the file name
+                filename_no_extension="${filename%.*}"
+                # Get the length of the file name
+                length=${#filename_no_extension}
+                case $operation in
+                    "shortest")
+                        # Update shortest length if current file name is shorter
+                        if [ "$length" -lt "$base_length" ]; then
+                            base_length="$length"
+                            files=("$file")
+                        fi
+                        ;;
+                    "largest")
+                        # Update longest length if current file name is longer
+                        if [ "$length" -gt "$base_length" ]; then
+                            base_length="$length"
+                            files=("$file")
+                        fi
+                        ;;
+                esac
+                # Add file to array if it's file name is the same length as current target
+                if [ "$length" -eq "$base_length" ]; then
+                    files+=("$file")
+                fi
+            fi
+        done
+    fi
     # If searching for shortest files and no files are found, set the base file lenght to 0
     if [ $base_length -eq 9999999999 ]; then
         base_length=0
     fi
-    # Loop through all command args
-    for arg in "${args[@]}"; do
-        # Output results to log file AND terminal if arg is present
-        if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Printing results to terminal"
-            echo "$operation file name length: $base_length"
-            log "$LOG_INFO" "$operation file name length: $base_length"
-            echo "${#files[@]} $operation file(s):"
-            log "$LOG_INFO" "${#files[@]} $operation file(s):"
-            echo "$directory/:"
-            echo -e "$directory/:" >> "$LOG_FILE"
-            for file in "${files[@]}"; do
-                echo "$file"
-                echo -e "$file" >> "$LOG_FILE"
-            done
-            return 0 # Returns 0 for process compelted
-        fi
-    done
+    # Outputting results
     log "$LOG_INFO" "$operation file name length: $base_length"
     log "$LOG_INFO" "${#files[@]} $operation file(s):"
     echo -e "$directory/:" >> "$LOG_FILE"
     for file in "${files[@]}"; do
         echo -e "$file" >> "$LOG_FILE"
     done
+    # Output to terminal if arg is present
+    if [ $optional_args -eq 2 ] || [ $optional_args -eq 4 ]; then
+        log "$LOG_INFO" "Printing results to terminal"
+        echo "$operation file name length: $base_length"
+        echo "${#files[@]} $operation file(s):"
+        echo "$directory/:"
+        for file in "${files[@]}"; do
+            echo "$file"
+        done
+    fi
     return 0 # Returns 0 for process compelted
 }
 
@@ -267,12 +359,10 @@ delete_old_logs() {
     echo "Listing all files that will be deleted"
     ls --ignore="Logs_$CURRENT_DATE.log" $LOG_DIR >> "$LOG_FILE"
     ls --ignore="Logs_$CURRENT_DATE.log" $LOG_DIR
-
     # Count the number of files being deleted
-    FILE_COUNT=$(ls --ignore="Logs_$CURRENT_DATE.log" $LOG_DIR | wc -l)
-    log "$LOG_INFO" "Total number of files being deleted: $FILE_COUNT"
-    echo "Total number of files being deleted: $FILE_COUNT"
-
+    file_count=$(ls --ignore="Logs_$CURRENT_DATE.log" $LOG_DIR | wc -l)
+    log "$LOG_INFO" "Total number of files being deleted: $file_count"
+    echo "Total number of files being deleted: $file_count"
     # Confirming deletion 
     log "$LOG_WARNING" "Files are about to be deleted"
     echo "WARNING: Files are about to be deleted"
@@ -281,10 +371,10 @@ delete_old_logs() {
         case ${args[0]} in
             "y")
                 # Delete all previous log files
-                log "$LOG_INFO" "Deletion confirmed. Deleting $FILE_COUNT files..."
+                log "$LOG_INFO" "Deletion confirmed. Deleting $file_count files..."
                 find $LOG_DIR/ ! -name "Logs_$CURRENT_DATE.log" -type f -exec rm {} +
-                echo "$FILE_COUNT files deleted"
-                log "$LOG_INFO" "$FILE_COUNT files deleted"
+                echo "$file_count files deleted"
+                log "$LOG_INFO" "$file_count files deleted"
                 break;
                 ;;
             "n")
@@ -304,6 +394,7 @@ delete_old_logs() {
 #? Command Controller Functions
 
 # Function to control the UUID command
+# TODO Remake this command properly
 uuid_controller() {
     # Ensure command has 2 args
     expected_args "=" 2
@@ -340,9 +431,13 @@ evaldir_controller() {
         return 1
     fi
     log "$LOG_INFO" "Analyzing '$_DIRECTORY'"
+    # Variables to sore optional arg states
+    check_evaldir_optional_args
+    local optional_args=$?
     # Perform functions per argument given
     command_arg=true
     for arg in "${args[@]}"; do
+        # If statements to ignore the command arg and optional output args
         if [ $command_arg == true ]; then
             command_arg=false
             continue
@@ -350,63 +445,76 @@ evaldir_controller() {
         if [ "$arg" == "-p" ]; then
             continue
         fi
+        if [ "$arg" == "-o" ]; then
+            continue
+        fi
         log "$LOG_INFO" "Executing Arg '$arg'"
         # Count how many of each file types are present in the directory and all sub directoryies if arg is provided
         if [ "$arg" == "-ct" ]; then
-            count_file_types "$_DIRECTORY"
-            for file in $_DIRECTORY/**/*; do
-                if [ -d "$file" ]; then
-                    count_file_types "$file"
-                fi
-            done
+            count_file_types "$_DIRECTORY" "$optional_args"
+            if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
+                for file in $_DIRECTORY/**/*; do
+                    if [ -d "$file" ]; then
+                        count_file_types "$file" "$optional_args"
+                    fi
+                done
+            fi
             echo "File type counting complete"
             log "$LOG_INFO" "File type counting complete"
             continue
         fi
         # Count collective size of each file type in the directory if arg is provided
         if [ "$arg" == "-cts" ]; then
-            count_file_type_size "$_DIRECTORY"
-            for file in $_DIRECTORY/**/*; do
-                if [ -d "$file" ]; then
-                    count_file_type_size "$file"
-                fi
-            done
+            count_file_type_size "$_DIRECTORY" "$optional_args"
+            if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
+                for file in $_DIRECTORY/**/*; do
+                    if [ -d "$file" ]; then
+                        count_file_type_size "$file" "$optional_args"
+                    fi
+                done
+            fi
             echo "Collective file type size counting complete"
             log "$LOG_INFO" "Collective file type size counting complete"
             continue
         fi
         # Count the total space used, in human readable format, in the direcotry if arg is provided
         if [ "$arg" == "-t" ]; then
-            count_total_space "$_DIRECTORY"
-            for file in $_DIRECTORY/**/*; do
-                if [ -d "$file" ]; then
-                    count_total_space "$file"
-                fi
-            done
+            count_total_space "$_DIRECTORY" "$optional_args"
+            if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
+                for file in $_DIRECTORY/**/*; do
+                    if [ -d "$file" ]; then
+                        count_total_space "$file" "$optional_args"
+                    fi
+                done
+            fi
             echo "Total space calculated successfully"
             log "$LOG_INFO" "Total space calculated successfully"
             continue
         fi
         # Count and find the shortest file name(s) in directory if arg is provided
         if [ "$arg" == "-fs" ]; then
-            filename_search "$_DIRECTORY" "shortest"
-            for file in $_DIRECTORY/**/*; do
-                if [ -d "$file" ]; then
-                    filename_search "$file" "shortest"
-                fi
-            done
+            filename_search "$_DIRECTORY" "shortest" "$optional_args"
+            if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
+                for file in $_DIRECTORY/**/*; do
+                    if [ -d "$file" ]; then
+                        filename_search "$file" "shortest" "$optional_args"
+                    fi
+                done
+            fi
             echo "Shortest file name search complete"
             log "$LOG_INFO" "Shortest file name search complete"
             continue
         fi
         # Count and find the largest file name(s) in directory if arg is provided
         if [ "$arg" == "-fl" ]; then
-            filename_search "$_DIRECTORY" "largest"
-            for file in $_DIRECTORY/**/*; do
-                if [ -d "$file" ]; then
-                    filename_search "$file" "largest"
-                fi
-            done
+            filename_search "$_DIRECTORY" "largest" "$optional_args"
+            if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
+                for file in $_DIRECTORY/**/*; do
+                    if [ -d "$file" ]; then
+                        filename_search "$file" "largest" "$optional_args"
+                    fi
+                done
+            fi
             echo "Largest file name search complete"
             log "$LOG_INFO" "Largest file name search complete"
             continue
@@ -491,7 +599,7 @@ log "$LOG_INFO" "Listing machine user details \n$(w -s)"
 
 echo "Utility Script";
 echo "'uuid' - Generate a UUID [-v1, -v4]"
-echo "'evaldir' - Evalulate '_Directory' [-ct, -cts, -t, -fs, -fl, -p]"
+echo "'evaldir' - Evalulate '_Directory' [-ct, -cts, -t, -fs, -fl, -p, -o]"
 echo "'log' - Manage Log Files [-c]"
 echo "'help' - Open MAN Page"
 echo "'exit' - Exit Script [-0, -1]"
