@@ -172,17 +172,17 @@ count_file_type_size() {
             fi
         done
     fi
-    # Convert total size from bytes to MB * 100
+    # Convert total size from bytes to KB * 100
     # This number will be divided by 100 and formatted to 2 DP upon output using printf
-    declare -A file_sizes_mb
+    declare -A file_sizes_kb
     for extension in "${!file_sizes[@]}"; do
-        file_sizes_mb["$extension"]=$(( (${file_sizes["$extension"]} * 100) / (1024 * 1024) ))
+        file_sizes_kb["$extension"]=$(( (${file_sizes["$extension"]} * 100) / 1024 ))
     done
     # Output results
     echo -e "$directory/:" >> "$LOG_FILE"
     for extension in "${!file_sizes[@]}"; do
         echo -e "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes" >> "$LOG_FILE"
-        echo -e "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB" >> "$LOG_FILE"
+        echo -e "Total size of '.$extension' files: $(( file_sizes_kb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_kb["$extension"] % 100 ))) KB" >> "$LOG_FILE"
     done
     # Output to terminal if arg is present
     if [ $optional_args -eq 2 ] || [ $optional_args -eq 4 ]; then
@@ -191,7 +191,7 @@ count_file_type_size() {
         # Print the total size for each file type to terminal
         for extension in "${!file_sizes[@]}"; do
             echo "Total size of '.$extension' files: ${file_sizes["$extension"]} bytes"
-            echo "Total size of '.$extension' files: $(( file_sizes_mb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_mb["$extension"] % 100 ))) MB"
+            echo "Total size of '.$extension' files: $(( file_sizes_kb["$extension"] / 100 )).$(printf "%02d" $(( file_sizes_kb["$extension"] % 100 ))) KB"
         done
     fi
     return 0 # Returns 0 for process compelted
