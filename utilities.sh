@@ -101,6 +101,47 @@ check_evaldir_optional_args() {
 
 #? Command Utility Functions
 
+# Function to generate a UUID Versioon 1
+uuid_version_1() {
+    # Get the current timestamp in nanoseconds
+    current_time_ns=$(date +%s%N)
+    echo -e "[Nanoseconds] $current_time_ns" >> "$LOG_FILE"
+    # Convert nanoseconds into nanosecond intervals
+    current_time_intervals=$(($current_time_ns / 100))
+    echo -e "[Nanoseconds Interval] $current_time_intervals" >> "$LOG_FILE"
+    # Calculate the time difference between October 15, 1582 and January 1, 1970 in seconds
+    nanosecond_intervals=122192928000000000
+    echo -e "[Interval] $nanosecond_intervals" >> "$LOG_FILE"
+    # Add the two nano intervals together to create timestamp
+    timestamp=$(($current_time_intervals + $nanosecond_intervals))
+    echo -e "[Timestamp] $timestamp" >> "$LOG_FILE"
+    # Define the UUID V1 version
+    version="1"
+    # Creating Low, Med, and High time for UUID V1
+    time_low=$(printf "%08X" ${timestamp:0:10})
+    time_med=$(printf "%04X" ${timestamp:10:4})
+    time_high=$(printf "%04X" <<< echo $((${timestamp:14:4} + $version)))
+    echo -e "[Low] $time_low" >> "$LOG_FILE"
+    echo -e "[Med] $time_med" >> "$LOG_FILE"
+    echo -e "[High] $time_high" >> "$LOG_FILE"
+    # Generate a random clock sequence
+    clock_sequence=$(printf "%04X" <<< echo $((RANDOM % 16384)))
+    echo -e "[Clock] $clock_sequence"
+    # Generate random node identifier
+    node_identifier=$(dd if=/dev/urandom bs=1 count=6 2>/dev/null | od -An -tx1 | tr -d ' ')
+    echo -e "[Node] $node_identifier"
+    # Combine all components
+    uuid="${time_low}-${time_med}-${time_high}-${clock_sequence}-${node_identifier}"
+    echo -e "Generated UUID Version 1:" >> "$LOG_FILE"
+    echo -e "$uuid" >> "$LOG_FILE"
+    return 0 # Process completed successfully
+}
+
+# Function to generate a UUID Versioon 4
+uuid_version_4() {
+    return 1
+}
+
 # Function to count how many of each file types are present in as given directory
 count_file_types() {
     # Variable to take in a file path as an arg
@@ -405,9 +446,10 @@ uuid_controller() {
     case ${args[1]} in
         "-v1") # Generate version 1
             log "$LOG_INFO" "Executing Arg '${args[1]}'"
+            uuid_version_1
             UUID=$(uuidgen -t)
-            echo "Generated UUID (version 1): $UUID"
-            log "$LOG_INFO" "Generated UUID (version 1): $UUID"
+            echo "[!!] Generated UUID (version 1): $UUID"
+            echo -e "$UUID" >> "$LOG_FILE"
             ;;
         "-v4") # Generate version 4
             log "$LOG_INFO" "Executing Arg '${args[1]}'"
