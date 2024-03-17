@@ -103,37 +103,26 @@ check_evaldir_optional_args() {
 
 # Function to generate a UUID Versioon 1
 uuid_version_1() {
-    # Get the current timestamp in nanoseconds
-    current_time_ns=$(date +%s%N)
-    echo -e "[Nanoseconds] $current_time_ns" >> "$LOG_FILE"
-    # Convert nanoseconds into nanosecond intervals
-    current_time_intervals=$(($current_time_ns / 100))
-    echo -e "[Nanoseconds Interval] $current_time_intervals" >> "$LOG_FILE"
-    # Calculate the time difference between October 15, 1582 and January 1, 1970 in seconds
-    nanosecond_intervals=122192928000000000
-    echo -e "[Interval] $nanosecond_intervals" >> "$LOG_FILE"
-    # Add the two nano intervals together to create timestamp
-    timestamp=$(($current_time_intervals + $nanosecond_intervals))
-    echo -e "[Timestamp] $timestamp" >> "$LOG_FILE"
-    # Define the UUID V1 version
-    version="1"
-    # Creating Low, Med, and High time for UUID V1
-    time_low=$(printf "%08X" ${timestamp:0:10})
-    time_med=$(printf "%04X" ${timestamp:10:4})
-    time_high=$(printf "%04X" <<< echo $((${timestamp:14:4} + $version)))
-    echo -e "[Low] $time_low" >> "$LOG_FILE"
-    echo -e "[Med] $time_med" >> "$LOG_FILE"
-    echo -e "[High] $time_high" >> "$LOG_FILE"
-    # Generate a random clock sequence
-    clock_sequence=$(printf "%04X" <<< echo $((RANDOM % 16384)))
-    echo -e "[Clock] $clock_sequence"
-    # Generate random node identifier
-    node_identifier=$(dd if=/dev/urandom bs=1 count=6 2>/dev/null | od -An -tx1 | tr -d ' ')
-    echo -e "[Node] $node_identifier"
-    # Combine all components
-    uuid="${time_low}-${time_med}-${time_high}-${clock_sequence}-${node_identifier}"
-    echo -e "Generated UUID Version 1:" >> "$LOG_FILE"
-    echo -e "$uuid" >> "$LOG_FILE"
+    # Set version to 1 (time-based)
+    version=1
+    # Get the current time in 100-nanosecond intervals since 1582-10-15 00:00:00 UTC
+    current_time=$(date -u +%s)
+    timestamp=$(($current_time * 10000000 + 0x01B21DD213814000))
+    # Convert time to hex and add padding if needed
+    timestamp_hex=$(printf "%016x" $timestamp)
+    # Split the hexed time into segments (low, mid, hi)
+    time_low=${timestamp_hex:8:8}
+    time_mid=${timestamp_hex:4:4}
+    time_hi=${timestamp_hex:1:3}
+    # Generate clock sequence (14 random bits)
+    clock_sequence=$(od -A n -t x2 -N 2 /dev/urandom | tr -d ' ')
+    # Generate node ID (48 random bits)
+    node_id=$(od -A n -t x8 -N 6 /dev/urandom | tr -d ' ')
+    # Format the UUID
+    uuid_v1="$time_low-$time_mid-$version$time_hi-$clock_sequence-${node_id:4:2}${node_id:6:2}${node_id:8:2}${node_id:10:2}${node_id:12:2}${node_id:14:2}"
+    # Output UUID
+    echo -e $uuid_v1 >> "$LOG_FILE"
+    echo -e $(uuidgen -t) >> "$LOG_FILE"
     return 0 # Process completed successfully
 }
 
@@ -447,9 +436,8 @@ uuid_controller() {
         "-v1") # Generate version 1
             log "$LOG_INFO" "Executing Arg '${args[1]}'"
             uuid_version_1
-            UUID=$(uuidgen -t)
-            echo "[!!] Generated UUID (version 1): $UUID"
-            echo -e "$UUID" >> "$LOG_FILE"
+            echo "UUID versiono 1 generation successful"
+            log "$LOG_INFO" "UUID versiono 1 generation successful"
             ;;
         "-v4") # Generate version 4
             log "$LOG_INFO" "Executing Arg '${args[1]}'"
