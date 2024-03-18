@@ -303,7 +303,7 @@ filename_search() {
                 # Remove the file extension from the file name
                 filename_no_extension="${filename%.*}"
                 # Get the length of the file name
-                length=${#filename_no_extension}
+                length=${#filename}
                 case $operation in
                     "shortest")
                         # Update shortest length if current file name is shorter
@@ -334,7 +334,7 @@ filename_search() {
                 # Remove the file extension from the file name
                 filename_no_extension="${filename%.*}"
                 # Get the length of the file name
-                length=${#filename_no_extension}
+                length=${#filename}
                 case $operation in
                     "shortest")
                         # Update shortest length if current file name is shorter
