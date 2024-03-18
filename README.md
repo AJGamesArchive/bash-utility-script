@@ -33,10 +33,10 @@ This is where you need to point your solution to analyse the contents as part of
 **Summary** 
 
 1. Develop as bash ultilty script in current directory that:
-  - Can generate two different versions of UUID{1,2,3,4,5} without the use of built-in UUID generators:
-    - Should be able to save to file AND print to terminal.
-    - Check if previous UUID exists and see if collision
-    - Check when last UUID was generated
+  - ~~Can generate~~ two different versions of UUID{1,2,3,4,5} without the use of built-in UUID generators:
+    - ~~Should be able to save to file AND print to terminal.~~
+    - ~~Check if previous UUID exists~~ and see if collision
+    - ~~Check when last UUID was generated~~
   - Categorise content in `_Directory`:
     - ~~For each child directory report how many of each file type there are and collective size of each file type~~
     - ~~For each child directory specify total space used, in human readable format~~

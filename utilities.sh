@@ -5,6 +5,11 @@ shopt -s globstar
 
 #? Log File Setup
 
+# Setting up default UUID output file
+UUID_DIR="UUID_Output"
+mkdir -p $UUID_DIR
+UUID_FILE="$UUID_DIR/UUIDs.txt"
+
 # Setting up default _Directory file
 _DIRECTORY="_Directory"
 
@@ -101,8 +106,43 @@ check_evaldir_optional_args() {
 
 #? Command Utility Functions
 
+# Function to check for UUID generation collisions
+uuid_collision_checker() {
+    log "$LOG_INFO" "Checking for collisions"
+    # Take in arg for the newly generated UUID
+    local new_uuid=$1
+    # Check UUID file to see if UUID already exists
+    if grep -q "$new_uuid" $UUID_FILE; then
+        line_number=$(grep -n "$new_uuid" $UUID_FILE | cut -d ':' -f 1)
+        log "$LOG_WARNING" "Collision found on line '$line_number' in '$UUID_FILE'"
+        log "$LOG_WARNING" "The duplicate UUID will not be saved"
+        return 1 # Collision occured
+    fi
+    log "$LOG_INFO" "No collisions found"
+    # Save new UUID to UUID file
+    echo -e "[$(date +"%Y-%m-%d %H:%M:%S")] $new_uuid" >> "$UUID_FILE"
+    log "$LOG_INFO" "UUID saved to '$UUID_FILE'"
+    return 0 # NO collision occured
+}
+
+# Function to check what the last UUID generated was and when it was generated
+check_last_uuid() {
+    log "$LOG_INFO" "Search for last generated UUID"
+    # Search for most recent UUID and output to log file
+    echo -e "UUID Found: $(grep -v '^$' $UUID_FILE | tail -n 1)" >> "$LOG_FILE"
+    # Output to terminal if arg is present
+    for arg in "${args[@]}"; do
+        if [ "$arg" == "-p" ]; then
+            log "$LOG_INFO" "Printing to terminal"
+            echo $(grep -v '^$' $UUID_FILE | tail -n 1)
+        fi
+    done
+    return 0 # Process completed successfully
+}
+
 # Function to generate a UUID Versioon 1
 uuid_version_1() {
+    log "$LOG_INFO" "Generating version 1 (time based)"
     # Set version to 1 (time-based)
     version=1
     # Get the current time in 100-nanosecond intervals since 1582-10-15 00:00:00 UTC
@@ -119,10 +159,21 @@ uuid_version_1() {
     # Generate node ID (48 random bits)
     node_id=$(od -A n -t x8 -N 6 /dev/urandom | tr -d ' ')
     # Format the UUID
-    uuid_v1="$time_low-$time_mid-$version$time_hi-$clock_sequence-${node_id:4:2}${node_id:6:2}${node_id:8:2}${node_id:10:2}${node_id:12:2}${node_id:14:2}"
+    uuid="$time_low-$time_mid-$version$time_hi-$clock_sequence-${node_id:4:2}${node_id:6:2}${node_id:8:2}${node_id:10:2}${node_id:12:2}${node_id:14:2}"
     # Output UUID
-    echo -e $uuid_v1 >> "$LOG_FILE"
-    echo -e $(uuidgen -t) >> "$LOG_FILE"
+    echo -e $uuid >> "$LOG_FILE"
+    # Output UUID to terminal if arg is present
+    for arg in "${args[@]}"; do
+        if [ "$arg" == "-p" ]; then
+            log "$LOG_INFO" "Printing to terminal"
+            echo $uuid
+        fi
+    done
+    # Check for collisions
+    uuid_collision_checker "$uuid"
+    if [ $? -eq 1 ]; then
+        return 1 # Collision found
+    fi
     return 0 # Process completed successfully
 }
 
@@ -300,8 +351,6 @@ filename_search() {
             if [ -f "$file" ]; then
                 # Get the file name without the directory path
                 filename=$(basename "$file")
-                # Remove the file extension from the file name
-                filename_no_extension="${filename%.*}"
                 # Get the length of the file name
                 length=${#filename}
                 case $operation in
@@ -331,8 +380,6 @@ filename_search() {
             if [ -f "$file" ]; then
                 # Get the file name without the directory path
                 filename=$(basename "$file")
-                # Remove the file extension from the file name
-                filename_no_extension="${filename%.*}"
                 # Get the length of the file name
                 length=${#filename}
                 case $operation in
@@ -424,32 +471,49 @@ delete_old_logs() {
 #? Command Controller Functions
 
 # Function to control the UUID command
-# TODO Remake this command properly
 uuid_controller() {
-    # Ensure command has 2 args
-    expected_args "=" 2
+    # Ensure command has at least 2 args
+    expected_args ">" 2
     if [ $? -eq 1 ]; then
         return 1
     fi
-    # Check the second args for UUID generation
-    case ${args[1]} in
-        "-v1") # Generate version 1
-            log "$LOG_INFO" "Executing Arg '${args[1]}'"
+    # Perform functions per argument given
+    command_arg=true
+    for arg in "${args[@]}"; do
+        # If statements to ignore the command arg and optional output args
+        if [ $command_arg == true ]; then
+            command_arg=false
+            continue
+        fi
+        if [ "$arg" == "-p" ]; then
+            continue
+        fi
+        log "$LOG_INFO" "Executing Arg '$arg'"
+        # Generate a version 1 UUID (time based) if arg is present
+        if [ "$arg" == "-t" ]; then
             uuid_version_1
-            echo "UUID versiono 1 generation successful"
-            log "$LOG_INFO" "UUID versiono 1 generation successful"
-            ;;
-        "-v4") # Generate version 4
-            log "$LOG_INFO" "Executing Arg '${args[1]}'"
-            UUID=$(uuidgen)
-            echo "Generated UUID (version 4): $UUID"
-            log "$LOG_INFO" "Generated UUID (version 4): $UUID"
-            ;;
-        *)
-            log "$LOG_INFO" "Executing Arg '${args[1]}'"
-            error 0 # Invalid args
-            ;;
-    esac
+            if [ $? -eq 1 ]; then
+                echo "Generation unsuccessful"
+                log "$LOG_INFO" "Generation unsuccessful"
+                continue
+            fi
+            echo "Generation successful"
+            log "$LOG_INFO" "Generation successful"
+            continue
+        fi
+        # Check what the last UUID generated was and when it was generated if arg is present
+        if [ "$arg" == "-ch" ]; then
+            check_last_uuid
+            echo "Search Complete"
+            log "$LOG_INFO" "Search Complete"
+            continue
+        fi
+        # Log invalid args
+        log "$LOG_WARNING" "Arg '$arg' is invalid"
+        log "$LOG_INFO" "Continueing to next arg"
+        echo "WARNING: Arg '$arg' is invalid"
+        echo "Continueing to next arg"
+    done
     return 0 # Returns 0 for process compelted
 }
 
@@ -549,6 +613,7 @@ evaldir_controller() {
             log "$LOG_INFO" "Largest file name search complete"
             continue
         fi
+        # Log invalid args
         log "$LOG_WARNING" "Arg '$arg' is invalid"
         log "$LOG_INFO" "Continueing to next arg"
         echo "WARNING: Arg '$arg' is invalid"
@@ -627,12 +692,14 @@ log "$LOG_INFO" "Listing machine user details \n$(w -s)"
 
 #? Main Menu Loop
 
-echo "Utility Script";
-echo "'uuid' - Generate a UUID [-v1, -v4]"
-echo "'evaldir' - Evalulate '_Directory' [-ct, -cts, -t, -fs, -fl, -p, -o]"
-echo "'log' - Manage Log Files [-c]"
-echo "'help' - Open MAN Page"
-echo "'exit' - Exit Script [-0, -1]"
+# Output main menu
+echo "Utility Script:";
+echo "Command, Alt      - Description               - Required Arg(s)               - Optional Args";
+echo "'uuid, id'        - Generate a UUID           - [-ch, -t]                     - [-p]"
+echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o]"
+echo "'log, l'          - Manage Log Files          - [-c]                          - []"
+echo "'help, h'         - Open MAN Page             - []                            - []"
+echo "'exit, e'         - Exit Script               - [-0, -1]                      - []"
 
 # Script Main Menu
 while true; do
