@@ -179,7 +179,36 @@ uuid_version_1() {
 
 # Function to generate a UUID Versioon 4
 uuid_version_4() {
-    return 1
+    log "$LOG_INFO" "Generating version 4 (pseudo-random)"
+    # Set version to version 4 (pseudo-random)
+    version=4
+    # Set the varient of the uuid
+    characters=("8" "9" "A" "B")
+    index=$((RANDOM % ${#characters[@]}))
+    varient=${characters[$index]}
+    # Generate pseudo-random hex characters to fill the uuid
+    first_32_bits=$(od -A n -t x2 -N 4 /dev/urandom | tr -d ' ')
+    second_16_bits=$(od -A n -t x2 -N 2 /dev/urandom | tr -d ' ')
+    third_16_bits=$(od -A n -t x2 -N 2 /dev/urandom | tr -d ' ')
+    forth_16_bits=$(od -A n -t x2 -N 2 /dev/urandom | tr -d ' ')
+    fitch_48_bits=$(od -A n -t x2 -N 6 /dev/urandom | tr -d ' ')
+    # Put the uuid together
+    uuid="$first_32_bits-$second_16_bits-$version${third_16_bits:1:3}-$varient${forth_16_bits:1:3}-$fitch_48_bits"
+    # Output UUID
+    echo -e $uuid >> "$LOG_FILE"
+    # Output UUID to terminal if arg is present
+    for arg in "${args[@]}"; do
+        if [ "$arg" == "-p" ]; then
+            log "$LOG_INFO" "Printing to terminal"
+            echo $uuid
+        fi
+    done
+    # Check for collisions
+    uuid_collision_checker "$uuid"
+    if [ $? -eq 1 ]; then
+        return 1 # Collision found
+    fi
+    return 0 # Process completed successfully
 }
 
 # Function to count how many of each file types are present in as given directory
@@ -501,6 +530,18 @@ uuid_controller() {
             log "$LOG_INFO" "Generation successful"
             continue
         fi
+        # Generate a version 4 UUID (pseudo-random) if arg is present
+        if [ "$arg" == "-pr" ]; then
+            uuid_version_4
+            if [ $? -eq 1 ]; then
+                echo "Generation unsuccessful"
+                log "$LOG_INFO" "Generation unsuccessful"
+                continue
+            fi
+            echo "Generation successful"
+            log "$LOG_INFO" "Generation successful"
+            continue
+        fi
         # Check what the last UUID generated was and when it was generated if arg is present
         if [ "$arg" == "-ch" ]; then
             check_last_uuid
@@ -695,7 +736,7 @@ log "$LOG_INFO" "Listing machine user details \n$(w -s)"
 # Output main menu
 echo "Utility Script:";
 echo "Command, Alt      - Description               - Required Arg(s)               - Optional Args";
-echo "'uuid, id'        - Generate a UUID           - [-ch, -t]                     - [-p]"
+echo "'uuid, id'        - Generate a UUID           - [-ch, -t, -pr]                - [-p]"
 echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o]"
 echo "'log, l'          - Manage Log Files          - [-c]                          - []"
 echo "'help, h'         - Open MAN Page             - []                            - []"
