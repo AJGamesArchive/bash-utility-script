@@ -65,7 +65,7 @@ $ chmod +w [script_name].sh
 ```
 - Execute bash script: 
 ```sh
-$ ./[script_name].sh
+$ ./[script_name].sh [command] [args]
 ```
 
 ## MAN Page

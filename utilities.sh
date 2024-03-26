@@ -1,5 +1,10 @@
 #!/bin/bash
 
+#? Setup initial script settings
+
+# Save all arguments into the 'args' array
+args=("$@")
+
 # Enable for looping through subdirectorys within direcotrys with the /**/* syntax
 shopt -s globstar
 
@@ -793,80 +798,123 @@ help_controller() {
 
 # Function to control the exit command
 exit_controller() {
-    # Ensure command has 2 args
-    expected_args "=" 2
-    if [ $? -eq 1 ]; then
-        return 1
-    fi
-    # Check the second args for exit command
-    case ${args[1]} in
-        "-0") # Exit with code 0 - Process completed
-            log "$LOG_INFO" "Executing Arg '${args[1]}'"
-            log "$LOG_INFO" "Script exited with code 0"
-            echo "Script Exiting... (0)"
-            exit 0
-            ;;
-        "-1") # Exit with code 1 - Process failed
-            log "$LOG_INFO" "Executing Arg '${args[1]}'"
-            log "$LOG_ERROR" "Script exited with code 1"
-            echo "Script Exiting... (1)"
-            exit 1
-            ;;
-        *)
-            log "$LOG_INFO" "Executing Arg '${args[1]}'"
-            error 0 # Invalid args
-            ;;
-    esac
-    return 0 # Returns 0 for process compelted
+    # Exit with code 0 - Process completed
+    log "$LOG_INFO" "Script exited with code 0"
+    echo "Script Exiting... (0)"
+    exit 0
 }
 
-#? Script Login
+#? Main Menu Loop (UI)
+
+# Function to handle the user interface if it's called
+user_interface_controller() {
+    log "$LOG_INFO" "Main Menu launched"
+    # Asking the user to enter their name
+    read -p "Enter your name to login: " -a args
+    log "$LOG_INFO" "${args[@]} has logged in"
+    # Output main menu
+    echo "Utility Script:";
+    echo "Command, Alt      - Description               - Required Arg(s)               - Optional Args";
+    echo "'uuid, id'        - Generate a UUID           - [-ch, -t, -pr]                - [-p]"
+    echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o, -d]"
+    echo "'log, l'          - Manage Log Files          - [-c]                          - []"
+    echo "'help, h'         - Open MAN Page             - []                            - []"
+    echo "'exit, e'         - Exit Script               - []                            - []"
+    # Script Main Menu
+    while true; do
+        # Promped the user to select a utility
+        echo "Select a utility:"
+        read -p ": " -a args
+        log "$LOG_INFO" "Command executed: '${args[@]}'"
+        # Check the first argument provided
+        case ${args[0]} in 
+            "uuid" | "id")
+                uuid_controller
+                ;;
+            "evaldir" | "ed")
+                evaldir_controller
+                ;;
+            "exit" | "e")
+                exit_controller
+                ;;
+            "log" | "l")
+                log_controller
+                ;;
+            "help" | "h")
+                help_controller
+                ;;
+            *)
+                error 1 # Command does not exist
+                ;;
+        esac
+    done
+}
+
+#? Script Start & Login
 
 # Loggin start of script
 log "$LOG_INFO" "Script Started"
 echo "Script Started"
 
-# Login to the system
-read -p "Enter your name to login: " -a args
-log "$LOG_INFO" "${args[@]} has logged in"
+# Logging the machine and user using the script
 log "$LOG_INFO" "Listing machine user details \n$(w -s)"
+log "$LOG_INFO" "Command executed: '${args[@]}'"
 
-#? Main Menu Loop
+# Check the first argument provided and execute the corrosponding command
+case $1 in 
+    "uuid" | "id")
+        uuid_controller
+        if [ $? -eq 1 ]; then
+            log "$LOG_ERROR" "Something went wrong"
+            log "$LOG_ERROR" "Script exited with code 1"
+            echo "Script Exiting... (1)"
+            exit 1
+        fi
+        ;;
+    "evaldir" | "ed")
+        evaldir_controller
+        if [ $? -eq 1 ]; then
+            log "$LOG_ERROR" "Something went wrong"
+            log "$LOG_ERROR" "Script exited with code 1"
+            echo "Script Exiting... (1)"
+            exit 1
+        fi
+        ;;
+    "log" | "l")
+        log_controller
+        if [ $? -eq 1 ]; then
+            log "$LOG_ERROR" "Something went wrong"
+            log "$LOG_ERROR" "Script exited with code 1"
+            echo "Script Exiting... (1)"
+            exit 1
+        fi
+        ;;
+    "help" | "h")
+        help_controller
+        if [ $? -eq 1 ]; then
+            log "$LOG_ERROR" "Something went wrong"
+            log "$LOG_ERROR" "Script exited with code 1"
+            echo "Script Exiting... (1)"
+            exit 1
+        fi
+        ;;
+    "menu" | "m")
+        user_interface_controller
+        if [ $? -eq 1 ]; then
+            log "$LOG_ERROR" "Something went wrong"
+            log "$LOG_ERROR" "Script exited with code 1"
+            echo "Script Exiting... (1)"
+            exit 1
+        fi
+        ;;
+    *)
+        error 1 # Command does not exist
+        log "$LOG_ERROR" "Script exited with code 1"
+        echo "Script Exiting... (1)"
+        exit 1
+        ;;
+esac
 
-# Output main menu
-echo "Utility Script:";
-echo "Command, Alt      - Description               - Required Arg(s)               - Optional Args";
-echo "'uuid, id'        - Generate a UUID           - [-ch, -t, -pr]                - [-p]"
-echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o, -d]"
-echo "'log, l'          - Manage Log Files          - [-c]                          - []"
-echo "'help, h'         - Open MAN Page             - []                            - []"
-echo "'exit, e'         - Exit Script               - [-0, -1]                      - []"
-
-# Script Main Menu
-while true; do
-    # Promped the user to select a utility
-    echo "Select a utility:"
-    read -p ": " -a args
-    log "$LOG_INFO" "Command executed: '${args[@]}'"
-    # Check the first argument provided
-    case ${args[0]} in 
-        "uuid" | "id")
-            uuid_controller
-            ;;
-        "evaldir" | "ed")
-            evaldir_controller
-            ;;
-        "exit" | "e")
-            exit_controller
-            ;;
-        "log" | "l")
-            log_controller
-            ;;
-        "help" | "h")
-            help_controller
-            ;;
-        *)
-            error 1 # Command does not exist
-            ;;
-    esac
-done
+log "$LOG_INFO" "Script exited with code 0"
+echo "See log file for further details"
+exit 0 # Script completed successfully
