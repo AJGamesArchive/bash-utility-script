@@ -72,15 +72,23 @@ $ ./[script_name].sh [command] [args]
 
 - Copy MAN script into correct file:
 ```sh
-$ sudo cp script_name.1 /usr/share/man/man1/
+$ sudo cp utilities.1.gz /usr/share/man/man1/
 ```
 - Remove an old MAN page
 ```sh
-$ sudo rm /usr/share/man/man1/script_name.1
+$ sudo rm /usr/share/man/man1/utilities.1.gz
 ```
 - Update MAN page index:
 ```sh
 $ sudo mandb
+```
+- Compress MAN page with GZIP
+```sh
+$ gzip < utilities.1 > utilities.1.gz 
+```
+- Open / Test MAN Page
+```sh
+$ man -l utilities.1.gz
 ```
 
 ## SSH Connection to GitHub

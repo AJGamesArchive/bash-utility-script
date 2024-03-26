@@ -451,6 +451,8 @@ count_total_space() {
 }
 
 # Function to count and find the shortest or largest file name(s) in _Directory depending on given args
+# TODO Add an argument to the file name search system to allow the exclusion of file extentions
+# TODO Remember to update MAN page & in script UI with commands updates
 filename_search() {
     # Variable to take in a file path as an arg
     local directory=$1
