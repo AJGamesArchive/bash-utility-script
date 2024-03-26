@@ -33,23 +33,23 @@ This is where you need to point your solution to analyse the contents as part of
 **Summary** 
 
 1. Develop as bash ultilty script in current directory that:
-  - ~~Can generate~~ two different versions of UUID{1,2,3,4,5} without the use of built-in UUID generators:
+  - ~~Can generate two different versions of UUID{1,2,3,4,5} without the use of built-in UUID generators:~~
     - ~~Should be able to save to file AND print to terminal.~~
     - ~~Check if previous UUID exists~~ and see if collision
     - ~~Check when last UUID was generated~~
-  - Categorise content in `_Directory`:
+  - ~~Categorise content in `_Directory`:~~
     - ~~For each child directory report how many of each file type there are and collective size of each file type~~
     - ~~For each child directory specify total space used, in human readable format~~
     - ~~For each child directory report find shortest and largest length of file name~~
     - ~~Output results to file AND option to return to terminal~~
-  - For all functionality
+  - ~~For all functionality~~
     - ~~there should be an argument~~ 
     - ~~can run functionality per argument(s)~~
     - ~~Must be able to record who has logged into system and when, and which script commands have been supplied appended to a log file.~~
 2. Build a simple `man` page for your script
   -  ensure you have compressed the document and named it with the correct `man` identifier.
 3. Throughout ensure you have reference to the PID of your script and PID of any sub commands run!
-4. You are encouraged to develop your solutions in a branch off of `main` and make merges where appropriate. **No** penalisation for developing in `main`.
+4. ~~You are encouraged to develop your solutions in a branch off of `main` and make merges where appropriate. **No** penalisation for developing in `main`.~~
 
 # Additional Commands & Tools
 
