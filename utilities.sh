@@ -215,16 +215,31 @@ uuid_version_4() {
 count_file_types() {
     # Variable to take in a file path as an arg
     local directory=$1
-    # Variables to sore optional arg states
+    # Variables to store optional arg states
     local optional_args=$2
+    # Variable to store if detailed mode has been called
+    local detailed=$3
     # Log process action
     log "$LOG_INFO" "Counting occurence of all unique file types in $directory"
+    if [ "$detailed" == "true" ]; then
+        log "$LOG_INFO" "Counting by detailed file types"
+    fi
     # Calculate collectively and output to terminal if args are present
     if [ $optional_args -eq 4 ]; then
         log "$LOG_INFO" "Counting files in all subdirectory's"
         log "$LOG_INFO" "Outputting to terminal"
         echo "$directory/**/*:"
         echo -e "$directory/**/*:" >> "$LOG_FILE"
+        if [ "$detailed" == "true" ]; then
+            # Use find to recursively list all files in the directory and its subdirectories
+            files=$(find $directory -type f)
+            # Loop through each file and extract its type using the file command
+            file_types=$(for file in $files; do file "$file"; done)
+            # Use grep to extract the file type from the output of the file command
+            # Then use awk to count occurrences of each unique file type
+            echo "$file_types" | grep -oP ':\s*\K.*' | awk '{count[$1]++} END {for (type in count) print type ": " count[type]}' | tee -a "$LOG_FILE"
+            return 0 # Process completed successfully
+        fi
         find $directory -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
         return 0 # Process completed successfully
     fi
@@ -232,6 +247,16 @@ count_file_types() {
     if [ $optional_args -eq 3 ]; then
         log "$LOG_INFO" "Counting files in all subdirectory's"
         echo -e "$directory/**/*:" >> "$LOG_FILE"
+        if [ "$detailed" == "true" ]; then
+            # Use find to recursively list all files in the directory and its subdirectories
+            files=$(find $directory -type f)
+            # Loop through each file and extract its type using the file command
+            file_types=$(for file in $files; do file "$file"; done)
+            # Use grep to extract the file type from the output of the file command
+            # Then use awk to count occurrences of each unique file type
+            echo -e "$file_types" | grep -oP ':\s*\K.*' | awk '{count[$1]++} END {for (type in count) print type ": " count[type]}' >> "$LOG_FILE"
+            return 0 # Process completed successfully
+        fi
         find $directory -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
         return 0 # Process completed successfully
     fi
@@ -239,13 +264,53 @@ count_file_types() {
     if [ $optional_args -eq 2 ]; then
         log "$LOG_INFO" "Outputting to terminal"
         echo "$directory/:"
-        echo -e "$directory/**/*:" >> "$LOG_FILE"
+        echo -e "$directory/:" >> "$LOG_FILE"
+        if [ "$detailed" == "true" ]; then
+            # Get the list of all files in the directory
+            files=$(find $directory -maxdepth 1 -type f)
+            # Loop through each file and extract its type using the file command
+            file_types=$(for file in $files; do file "$file"; done)
+            # Use grep to extract the file type from the output of the file command
+            # Then use awk to count occurrences of each unique file type
+            echo "$file_types" | grep -oP ':\s*\K.*' | awk '{count[$1]++} END {for (type in count) print type ": " count[type]}' | tee -a "$LOG_FILE"
+            return 0 # Process completed successfully
+        fi
         find $directory -maxdepth 1 -type f | awk -F . '{print $NF}' | sort | uniq -c | tee -a "$LOG_FILE"
         return 0 # Process completed successfully
     fi
     echo -e "$directory/:" >> "$LOG_FILE"
+    if [ "$detailed" == "true" ]; then
+        # Get the list of all files in the directory
+        files=$(find $directory -maxdepth 1 -type f)
+        # Loop through each file and extract its type using the file command
+        file_types=$(for file in $files; do file "$file"; done)
+        # Use grep to extract the file type from the output of the file command
+        # Then use awk to count occurrences of each unique file type
+        echo -e "$file_types" | grep -oP ':\s*\K.*' | awk '{count[$1]++} END {for (type in count) print type ": " count[type]}' >> "$LOG_FILE"
+        return 0 # Process completed successfully
+    fi
     find $directory -maxdepth 1 -type f | awk -F . '{print $NF}' | sort | uniq -c >> "$LOG_FILE"
     return 0 # Returns 0 for process compelted
+}
+
+# Function to handle the file type counter modes
+count_file_types_handler() {
+    # Variable to take in a file path as an arg
+    local directory=$1
+    # Variables to sore optional arg states
+    local optional_args=$2
+    # Variable to store whether detailed mode has been called
+    local detailed=false
+    # Loop through command args to see if detailed mode was called
+    for arg in "${args[@]}"; do
+        if [ "$arg" == "-d" ]; then
+            detailed=true
+            break
+        fi
+    done
+    # Call file type counter
+    count_file_types "$directory" "$optional_args" "$detailed"
+    return 0 # Returns 0 for process completed
 }
 
 # Function to count collective size of each file type in _Directory
@@ -255,6 +320,8 @@ count_file_type_size() {
     log "$LOG_INFO" "Counting the collective file size for each unique file type in $directory"
     # Variables to sore optional arg states
     local optional_args=$2
+    # Variable to store whether detailed mode has been called
+    local detailed=$3
     # Associative array/dictionary to store total size for each file type
     declare -A file_sizes
     # Loop through all files in the directory, include subdirectory's if arg is present
@@ -263,7 +330,12 @@ count_file_type_size() {
         for file in "$directory"/**/*; do
             if [ -f "$file" ]; then
                 # Get the file extension
-                extension="${file##*.}"
+                local extension
+                if [ $detailed == "true" ]; then
+                    extension="$(file "$file" | grep -oP ':\s*\K.*')" # Detailed file type
+                else
+                    extension="${file##*.}"
+                fi
                 # Get the size of the file
                 size=$(stat -c %s "$file")
                 # Add the size to the total for the corresponding file type
@@ -274,7 +346,12 @@ count_file_type_size() {
         for file in "$directory"/*; do
             if [ -f "$file" ]; then
                 # Get the file extension
-                extension="${file##*.}"
+                local extension
+                if [ $detailed == "true" ]; then
+                    extension="$(file "$file" | grep -oP ':\s*\K.*')" # Detailed file type
+                else
+                    extension="${file##*.}"
+                fi
                 # Get the size of the file
                 size=$(stat -c %s "$file")
                 # Add the size to the total for the corresponding file type
@@ -305,6 +382,26 @@ count_file_type_size() {
         done
     fi
     return 0 # Returns 0 for process compelted
+}
+
+# Function to handle the file type size calculator modes
+count_file_type_size_handler() {
+    # Variable to take in a file path as an arg
+    local directory=$1
+    # Variables to store optional arg states
+    local optional_args=$2
+    # Variable to store whether detailed mode has been called
+    local detailed=false
+    # Loop through command args to see if detailed mode was called
+    for arg in "${args[@]}"; do
+        if [ "$arg" == "-d" ]; then
+            detailed=true
+            break
+        fi
+    done
+    # Call file type size calculator
+    count_file_type_size "$directory" "$optional_args" "$detailed"
+    return 0 # Returns 0 for process completed
 }
 
 # Function to count the total collective space used in _Directory, in human readable format
@@ -372,7 +469,7 @@ filename_search() {
     esac
     # Loging process start
     log "$LOG_INFO" "Searching for the '$operation' file names and lengths in '$directory'"
-    log "$LOG_INFO" "Counting filenames excluding directory file paths and file extentions"
+    log "$LOG_INFO" "Counting filenames excluding directory file paths"
     # Loop through all files in the directory, including subdirectory's if arg is present
     if [ $optional_args -eq 3 ] || [ $optional_args -eq 4 ]; then
         log "$LOG_INFO" "Searching for the '$operation' file names and lengths in all subdirectory's"
@@ -583,14 +680,17 @@ evaldir_controller() {
         if [ "$arg" == "-o" ]; then
             continue
         fi
+        if [ "$arg" == "-d" ]; then
+            continue
+        fi
         log "$LOG_INFO" "Executing Arg '$arg'"
         # Count how many of each file types are present in the directory and all sub directoryies if arg is provided
         if [ "$arg" == "-ct" ]; then
-            count_file_types "$_DIRECTORY" "$optional_args"
+            count_file_types_handler "$_DIRECTORY" "$optional_args"
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
-                        count_file_types "$file" "$optional_args"
+                        count_file_types_handler "$file" "$optional_args"
                     fi
                 done
             fi
@@ -600,11 +700,11 @@ evaldir_controller() {
         fi
         # Count collective size of each file type in the directory if arg is provided
         if [ "$arg" == "-cts" ]; then
-            count_file_type_size "$_DIRECTORY" "$optional_args"
+            count_file_type_size_handler "$_DIRECTORY" "$optional_args"
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
-                        count_file_type_size "$file" "$optional_args"
+                        count_file_type_size_handler "$file" "$optional_args"
                     fi
                 done
             fi
@@ -737,7 +837,7 @@ log "$LOG_INFO" "Listing machine user details \n$(w -s)"
 echo "Utility Script:";
 echo "Command, Alt      - Description               - Required Arg(s)               - Optional Args";
 echo "'uuid, id'        - Generate a UUID           - [-ch, -t, -pr]                - [-p]"
-echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o]"
+echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o, -d]"
 echo "'log, l'          - Manage Log Files          - [-c]                          - []"
 echo "'help, h'         - Open MAN Page             - []                            - []"
 echo "'exit, e'         - Exit Script               - [-0, -1]                      - []"
