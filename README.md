@@ -84,7 +84,7 @@ $ sudo mandb
 ```
 - Compress MAN page with GZIP
 ```sh
-$ gzip < utilities.1 > utilities.1.gz 
+$ gzip < utilities.1 > utilities.1.gz
 ```
 - Open / Test MAN Page
 ```sh
