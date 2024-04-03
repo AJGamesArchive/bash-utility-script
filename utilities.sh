@@ -109,6 +109,17 @@ check_evaldir_optional_args() {
     return 1 # NO optional args are present
 }
 
+# Function to check whether file extentions should be excluded from the filename length searcher
+check_remove_extention() {
+    # Loop through command args to search for option args
+    for arg in "${args[@]}"; do
+        if [ "$arg" == "-re" ]; then
+            return 0 # Return 0 for remove extention
+        fi
+    done
+    return 1 # Return 1 for don't remove extention
+}
+
 #? Command Utility Functions
 
 # Function to check for UUID generation collisions
@@ -451,8 +462,6 @@ count_total_space() {
 }
 
 # Function to count and find the shortest or largest file name(s) in _Directory depending on given args
-# TODO Add an argument to the file name search system to allow the exclusion of file extentions
-# TODO Remember to update MAN page & in script UI with commands updates
 filename_search() {
     # Variable to take in a file path as an arg
     local directory=$1
@@ -477,6 +486,13 @@ filename_search() {
     # Loging process start
     log "$LOG_INFO" "Searching for the '$operation' file names and lengths in '$directory'"
     log "$LOG_INFO" "Counting filenames excluding directory file paths"
+    # Check if the file extention should be excluded from the file name length
+    local exclude_extention=false
+    check_remove_extention
+    if [ $? -eq 0 ]; then
+        log "$LOG_INFO" "Counting filenames excluding file extention"
+        exclude_extention=true
+    fi
     # Loop through all files in the directory, including subdirectory's if arg is present
     if [ $optional_args -eq 3 ] || [ $optional_args -eq 4 ]; then
         log "$LOG_INFO" "Searching for the '$operation' file names and lengths in all subdirectory's"
@@ -484,6 +500,10 @@ filename_search() {
             if [ -f "$file" ]; then
                 # Get the file name without the directory path
                 filename=$(basename "$file")
+                # Remove file extention from filename if optional arg is resent
+                if [ $exclude_extention == true ]; then
+                    filename="${filename%.*}"
+                fi
                 # Get the length of the file name
                 length=${#filename}
                 case $operation in
@@ -513,6 +533,10 @@ filename_search() {
             if [ -f "$file" ]; then
                 # Get the file name without the directory path
                 filename=$(basename "$file")
+                # Remove file extention from filename if optional arg is resent
+                if [ $exclude_extention == true ]; then
+                    filename="${filename%.*}"
+                fi
                 # Get the length of the file name
                 length=${#filename}
                 case $operation in
@@ -690,6 +714,9 @@ evaldir_controller() {
         if [ "$arg" == "-d" ]; then
             continue
         fi
+        if [ "$arg" == "-re" ]; then
+            continue
+        fi
         log "$LOG_INFO" "Executing Arg '$arg'"
         # Count how many of each file types are present in the directory and all sub directoryies if arg is provided
         if [ "$arg" == "-ct" ]; then
@@ -793,8 +820,14 @@ log_controller() {
 
 # Function to control the help command
 help_controller() {
-    log "$LOG_ERROR" "MAN page not implemented yet"
-    echo "ERROR: MAN page not implemented yet."
+    log "$LOG_INFO" "List of commands and args outputted to terminal"
+    echo "Utility Script:";
+    echo "Command, Alt      - Description               - Required Arg(s)               - Optional Args";
+    echo "'uuid, id'        - Generate a UUID           - [-ch, -t, -pr]                - [-p]"
+    echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o, -d, -re]"
+    echo "'log, l'          - Manage Log Files          - [-c]                          - []"
+    echo "'help, h'         - Open MAN Page             - []                            - []"
+    echo "'exit, e'         - Exit Script               - []                            - []"
     return 0 # Returns 0 for process compelted
 }
 
@@ -818,7 +851,7 @@ user_interface_controller() {
     echo "Utility Script:";
     echo "Command, Alt      - Description               - Required Arg(s)               - Optional Args";
     echo "'uuid, id'        - Generate a UUID           - [-ch, -t, -pr]                - [-p]"
-    echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o, -d]"
+    echo "'evaldir, ed'     - Evalulate '_Directory'    - [-ct, -cts, -t, -fs, -fl]     - [-p, -o, -d, -re]"
     echo "'log, l'          - Manage Log Files          - [-c]                          - []"
     echo "'help, h'         - Open MAN Page             - []                            - []"
     echo "'exit, e'         - Exit Script               - []                            - []"
@@ -856,7 +889,6 @@ user_interface_controller() {
 
 # Loggin start of script
 log "$LOG_INFO" "Script Started"
-echo "Script Started"
 
 # Logging the machine and user using the script
 log "$LOG_INFO" "Listing machine user details \n$(w -s)"
