@@ -124,20 +124,21 @@ check_remove_extention() {
 
 # Function to check for UUID generation collisions
 uuid_collision_checker() {
-    log "$LOG_INFO" "Checking for collisions"
+    local version=$1
+    log "$LOG_INFO" "Checking for UUID V$version collisions"
     # Take in arg for the newly generated UUID
-    local new_uuid=$1
+    local new_uuid=$2
     # Check UUID file to see if UUID already exists
     if grep -q "$new_uuid" $UUID_FILE; then
         line_number=$(grep -n "$new_uuid" $UUID_FILE | cut -d ':' -f 1)
-        log "$LOG_WARNING" "Collision found on line '$line_number' in '$UUID_FILE'"
+        log "$LOG_WARNING" "UUID V$version Collision found on line '$line_number' in '$UUID_FILE'"
         log "$LOG_WARNING" "The duplicate UUID will not be saved"
         return 1 # Collision occured
     fi
-    log "$LOG_INFO" "No collisions found"
+    log "$LOG_INFO" "No UUID V$version collisions found"
     # Save new UUID to UUID file
     echo -e "[$(date +"%Y-%m-%d %H:%M:%S")] $new_uuid" >> "$UUID_FILE"
-    log "$LOG_INFO" "UUID saved to '$UUID_FILE'"
+    log "$LOG_INFO" "UUID V$version saved to '$UUID_FILE'"
     return 0 # NO collision occured
 }
 
@@ -150,9 +151,10 @@ check_last_uuid() {
     for arg in "${args[@]}"; do
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Printing to terminal"
-            echo $(grep -v '^$' $UUID_FILE | tail -n 1)
+            echo "UUID Found: $(grep -v '^$' $UUID_FILE | tail -n 1)"
         fi
     done
+    log "$LOG_INFO" "Search Complete"
     return 0 # Process completed successfully
 }
 
@@ -177,19 +179,24 @@ uuid_version_1() {
     # Format the UUID
     uuid="$time_low-$time_mid-$version$time_hi-$clock_sequence-${node_id:4:2}${node_id:6:2}${node_id:8:2}${node_id:10:2}${node_id:12:2}${node_id:14:2}"
     # Output UUID
-    echo -e $uuid >> "$LOG_FILE"
-    # Output UUID to terminal if arg is present
+    log "$LOG_INFO" "UUID V1: $uuid"
+    # Check for collisions
+    uuid_collision_checker 1 "$uuid" &
+    log "$LOG_INFO" "Process Run:" $!
+    wait
+    if [ $? -eq 1 ]; then
+        echo "UUID V$version generation unsuccessful. Collision found."
+        log "$LOG_INFO" "UUID V$version generation unsuccessful. Collision found."
+        return 1 # Collision found
+    fi
+    # Output UUID to terminal if arg is present and if generation is successful
     for arg in "${args[@]}"; do
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Printing to terminal"
-            echo $uuid
+            echo "UUID V1: $uuid"
         fi
     done
-    # Check for collisions
-    uuid_collision_checker "$uuid"
-    if [ $? -eq 1 ]; then
-        return 1 # Collision found
-    fi
+    log "$LOG_INFO" "UUID V$version generation successful"
     return 0 # Process completed successfully
 }
 
@@ -211,19 +218,24 @@ uuid_version_4() {
     # Put the uuid together
     uuid="$first_32_bits-$second_16_bits-$version${third_16_bits:1:3}-$varient${forth_16_bits:1:3}-$fitch_48_bits"
     # Output UUID
-    echo -e $uuid >> "$LOG_FILE"
+    log "$LOG_INFO" "UUID V4: $uuid"
+    # Check for collisions
+    uuid_collision_checker 4 "$uuid" &
+    log "$LOG_INFO" "Process Run:" $!
+    wait
+    if [ $? -eq 1 ]; then
+        echo "UUID V$version generation unsuccessful. Collision found."
+        log "$LOG_INFO" "UUID V$version generation unsuccessful. Collision found."
+        return 1 # Collision found
+    fi
     # Output UUID to terminal if arg is present
     for arg in "${args[@]}"; do
         if [ "$arg" == "-p" ]; then
             log "$LOG_INFO" "Printing to terminal"
-            echo $uuid
+            echo "UUID V4: $uuid"
         fi
     done
-    # Check for collisions
-    uuid_collision_checker "$uuid"
-    if [ $? -eq 1 ]; then
-        return 1 # Collision found
-    fi
+    log "$LOG_INFO" "UUID V$version generation successful"
     return 0 # Process completed successfully
 }
 
@@ -630,7 +642,9 @@ delete_old_logs() {
 # Function to control the UUID command
 uuid_controller() {
     # Ensure command has at least 2 args
-    expected_args ">" 2
+    expected_args ">" 2 &
+    log "$LOG_INFO" "Process Run:" $!
+    wait
     if [ $? -eq 1 ]; then
         return 1
     fi
@@ -648,33 +662,20 @@ uuid_controller() {
         log "$LOG_INFO" "Executing Arg '$arg'"
         # Generate a version 1 UUID (time based) if arg is present
         if [ "$arg" == "-t" ]; then
-            uuid_version_1
-            if [ $? -eq 1 ]; then
-                echo "Generation unsuccessful"
-                log "$LOG_INFO" "Generation unsuccessful"
-                continue
-            fi
-            echo "Generation successful"
-            log "$LOG_INFO" "Generation successful"
+            uuid_version_1 &
+            log "$LOG_INFO" "Process Run:" $!
             continue
         fi
         # Generate a version 4 UUID (pseudo-random) if arg is present
         if [ "$arg" == "-pr" ]; then
-            uuid_version_4
-            if [ $? -eq 1 ]; then
-                echo "Generation unsuccessful"
-                log "$LOG_INFO" "Generation unsuccessful"
-                continue
-            fi
-            echo "Generation successful"
-            log "$LOG_INFO" "Generation successful"
+            uuid_version_4 &
+            log "$LOG_INFO" "Process Run:" $!
             continue
         fi
         # Check what the last UUID generated was and when it was generated if arg is present
         if [ "$arg" == "-ch" ]; then
-            check_last_uuid
-            echo "Search Complete"
-            log "$LOG_INFO" "Search Complete"
+            check_last_uuid &
+            log "$LOG_INFO" "Process Run:" $!
             continue
         fi
         # Log invalid args
@@ -683,6 +684,7 @@ uuid_controller() {
         echo "WARNING: Arg '$arg' is invalid"
         echo "Continueing to next arg"
     done
+    wait
     return 0 # Returns 0 for process compelted
 }
 
@@ -890,6 +892,9 @@ user_interface_controller() {
 # Loggin start of script
 log "$LOG_INFO" "Script Started"
 
+# Output main PID
+log "$LOG_INFO" "Main Process Run:" $$
+
 # Logging the machine and user using the script
 log "$LOG_INFO" "Listing machine user details \n$(w -s)"
 log "$LOG_INFO" "Command executed: '${args[@]}'"
@@ -897,7 +902,9 @@ log "$LOG_INFO" "Command executed: '${args[@]}'"
 # Check the first argument provided and execute the corrosponding command
 case $1 in 
     "uuid" | "id")
-        uuid_controller
+        uuid_controller &
+        log "$LOG_INFO" "Process Run:" $!
+        wait
         if [ $? -eq 1 ]; then
             log "$LOG_ERROR" "Something went wrong"
             log "$LOG_ERROR" "Script exited with code 1"
@@ -906,7 +913,9 @@ case $1 in
         fi
         ;;
     "evaldir" | "ed")
-        evaldir_controller
+        evaldir_controller &
+        log "$LOG_INFO" "Process Run:" $!
+        wait
         if [ $? -eq 1 ]; then
             log "$LOG_ERROR" "Something went wrong"
             log "$LOG_ERROR" "Script exited with code 1"
@@ -915,7 +924,9 @@ case $1 in
         fi
         ;;
     "log" | "l")
-        log_controller
+        log_controller &
+        log "$LOG_INFO" "Process Run:" $!
+        wait
         if [ $? -eq 1 ]; then
             log "$LOG_ERROR" "Something went wrong"
             log "$LOG_ERROR" "Script exited with code 1"
@@ -924,7 +935,9 @@ case $1 in
         fi
         ;;
     "help" | "h")
-        help_controller
+        help_controller &
+        log "$LOG_INFO" "Process Run:" $!
+        wait
         if [ $? -eq 1 ]; then
             log "$LOG_ERROR" "Something went wrong"
             log "$LOG_ERROR" "Script exited with code 1"
@@ -933,7 +946,9 @@ case $1 in
         fi
         ;;
     "menu" | "m")
-        user_interface_controller
+        user_interface_controller &
+        log "$LOG_INFO" "Process Run:" $!
+        wait
         if [ $? -eq 1 ]; then
             log "$LOG_ERROR" "Something went wrong"
             log "$LOG_ERROR" "Script exited with code 1"
@@ -950,5 +965,4 @@ case $1 in
 esac
 
 log "$LOG_INFO" "Script exited with code 0"
-echo "See log file for further details"
 exit 0 # Script completed successfully
