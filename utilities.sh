@@ -710,9 +710,7 @@ evaldir_controller() {
     fi
     log "$LOG_INFO" "Analyzing '$_DIRECTORY'"
     # Variables to sore optional arg states
-    check_evaldir_optional_args &
-    log "$LOG_INFO" "Process Run:" $!
-    wait
+    check_evaldir_optional_args
     local optional_args=$?
     # Perform functions per argument given
     command_arg=true
@@ -739,11 +737,13 @@ evaldir_controller() {
         if [ "$arg" == "-ct" ]; then
             count_file_types_handler "$_DIRECTORY" "$optional_args" &
             log "$LOG_INFO" "Process Run:" $!
+            wait
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
                         count_file_types_handler "$file" "$optional_args" &
                         log "$LOG_INFO" "Process Run:" $!
+                        wait
                     fi
                 done
             fi
@@ -753,11 +753,13 @@ evaldir_controller() {
         if [ "$arg" == "-cts" ]; then
             count_file_type_size_handler "$_DIRECTORY" "$optional_args" &
             log "$LOG_INFO" "Process Run:" $!
+            wait
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
                         count_file_type_size_handler "$file" "$optional_args" &
                         log "$LOG_INFO" "Process Run:" $!
+                        wait
                     fi
                 done
             fi
@@ -767,11 +769,13 @@ evaldir_controller() {
         if [ "$arg" == "-t" ]; then
             count_total_space "$_DIRECTORY" "$optional_args" &
             log "$LOG_INFO" "Process Run:" $!
+            wait
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
                         count_total_space "$file" "$optional_args" &
                         log "$LOG_INFO" "Process Run:" $!
+                        wait
                     fi
                 done
             fi
@@ -781,11 +785,13 @@ evaldir_controller() {
         if [ "$arg" == "-fs" ]; then
             filename_search "$_DIRECTORY" "shortest" "$optional_args" &
             log "$LOG_INFO" "Process Run:" $!
+            wait
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
                         filename_search "$file" "shortest" "$optional_args" &
                         log "$LOG_INFO" "Process Run:" $!
+                        wait
                     fi
                 done
             fi
@@ -795,11 +801,13 @@ evaldir_controller() {
         if [ "$arg" == "-fl" ]; then
             filename_search "$_DIRECTORY" "largest" "$optional_args" &
             log "$LOG_INFO" "Process Run:" $!
+            wait
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
                         filename_search "$file" "largest" "$optional_args" &
                         log "$LOG_INFO" "Process Run:" $!
+                        wait
                     fi
                 done
             fi
