@@ -60,21 +60,24 @@ expected_args() {
     local operator="$1"
     local expected_count="$2"
     case $operator in
-        "<") # Less than
+        "<")
             if [ ${#args[@]} -gt $expected_count ]; then
-                error 0 # Invalid args
+                error 0 &
+                log "$LOG_INFO" "Process Run:" $!
                 return 1 # Returns 1 for invalid args
             fi
             ;;
-        ">") # Greater than
+        ">")
             if [ ${#args[@]} -lt $expected_count ]; then
-                error 0 # Invalid args
+                error 0 &
+                log "$LOG_INFO" "Process Run:" $!
                 return 1 # Returns 1 for invalid args
             fi
             ;;
-        *) # Equal to
+        *)
             if [ ${#args[@]} -ne $expected_count ]; then
-                error 0 # Invalid args
+                error 0 &
+                log "$LOG_INFO" "Process Run:" $!
                 return 1 # Returns 1 for invalid args
             fi
             ;;
@@ -150,7 +153,7 @@ check_last_uuid() {
     # Output to terminal if arg is present
     for arg in "${args[@]}"; do
         if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Printing to terminal"
+            log "$LOG_INFO" "Printing last UUID to terminal"
             echo "UUID Found: $(grep -v '^$' $UUID_FILE | tail -n 1)"
         fi
     done
@@ -192,7 +195,7 @@ uuid_version_1() {
     # Output UUID to terminal if arg is present and if generation is successful
     for arg in "${args[@]}"; do
         if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Printing to terminal"
+            log "$LOG_INFO" "Printing UUID V$version to terminal"
             echo "UUID V1: $uuid"
         fi
     done
@@ -231,7 +234,7 @@ uuid_version_4() {
     # Output UUID to terminal if arg is present
     for arg in "${args[@]}"; do
         if [ "$arg" == "-p" ]; then
-            log "$LOG_INFO" "Printing to terminal"
+            log "$LOG_INFO" "Printing UUID V$version to terminal"
             echo "UUID V4: $uuid"
         fi
     done
@@ -250,12 +253,12 @@ count_file_types() {
     # Log process action
     log "$LOG_INFO" "Counting occurence of all unique file types in $directory"
     if [ "$detailed" == "true" ]; then
-        log "$LOG_INFO" "Counting by detailed file types"
+        log "$LOG_INFO" "Counting file type occurences in $directory by detailed file types"
     fi
     # Calculate collectively and output to terminal if args are present
     if [ $optional_args -eq 4 ]; then
-        log "$LOG_INFO" "Counting files in all subdirectory's"
-        log "$LOG_INFO" "Outputting to terminal"
+        log "$LOG_INFO" "Counting file type occurences in all subdirectory's of $directory"
+        log "$LOG_INFO" "Outputting file type occurences in $directory to terminal"
         echo "$directory/**/*:"
         echo -e "$directory/**/*:" >> "$LOG_FILE"
         if [ "$detailed" == "true" ]; then
@@ -273,7 +276,7 @@ count_file_types() {
     fi
     # Calculate collectively if arg is present
     if [ $optional_args -eq 3 ]; then
-        log "$LOG_INFO" "Counting files in all subdirectory's"
+        log "$LOG_INFO" "Counting file type occurences in all subdirectory's of $directory"
         echo -e "$directory/**/*:" >> "$LOG_FILE"
         if [ "$detailed" == "true" ]; then
             # Use find to recursively list all files in the directory and its subdirectories
@@ -290,7 +293,7 @@ count_file_types() {
     fi
     # Outputting to terminal if arg is resent
     if [ $optional_args -eq 2 ]; then
-        log "$LOG_INFO" "Outputting to terminal"
+        log "$LOG_INFO" "Outputting file type occurences in $directory to terminal"
         echo "$directory/:"
         echo -e "$directory/:" >> "$LOG_FILE"
         if [ "$detailed" == "true" ]; then
@@ -337,7 +340,9 @@ count_file_types_handler() {
         fi
     done
     # Call file type counter
-    count_file_types "$directory" "$optional_args" "$detailed"
+    count_file_types "$directory" "$optional_args" "$detailed" &
+    log "$LOG_INFO" "Process Run:" $!
+    wait
     return 0 # Returns 0 for process completed
 }
 
@@ -354,7 +359,7 @@ count_file_type_size() {
     declare -A file_sizes
     # Loop through all files in the directory, include subdirectory's if arg is present
     if [ $optional_args -eq 3 ] || [ $optional_args -eq 4 ]; then
-        log "$LOG_INFO" "Counting the collective file size for each unique file in all subdirectory's"
+        log "$LOG_INFO" "Counting the collective file size for each unique file type in all subdirectory's of $directory"
         for file in "$directory"/**/*; do
             if [ -f "$file" ]; then
                 # Get the file extension
@@ -401,7 +406,7 @@ count_file_type_size() {
     done
     # Output to terminal if arg is present
     if [ $optional_args -eq 2 ] || [ $optional_args -eq 4 ]; then
-        log "$LOG_INFO" "Printing results to terminal"
+        log "$LOG_INFO" "Printing collective file size for each unique file type results to terminal"
         echo "$directory/:"
         # Print the total size for each file type to terminal
         for extension in "${!file_sizes[@]}"; do
@@ -428,7 +433,9 @@ count_file_type_size_handler() {
         fi
     done
     # Call file type size calculator
-    count_file_type_size "$directory" "$optional_args" "$detailed"
+    count_file_type_size "$directory" "$optional_args" "$detailed" &
+    log "$LOG_INFO" "Process Run:" $!
+    wait
     return 0 # Returns 0 for process completed
 }
 
@@ -443,7 +450,7 @@ count_total_space() {
     total_size=0
     # Loop through all files in the directory, include subdirectory's if arg is present
     if [ $optional_args -eq 3 ] || [ $optional_args -eq 4 ]; then
-        log "$LOG_INFO" "Calculating total file space used in all subdirectory's"
+        log "$LOG_INFO" "Calculating total file space used in all subdirectory's of $directory"
         for file in "$directory"/**/*; do
             if [ -f "$file" ]; then
                 size=$(stat -c "%s" "$file")
@@ -466,7 +473,7 @@ count_total_space() {
     echo -e "Total space used by '$directory': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB" >> "$LOG_FILE"
     # Output to terminal if arg is present
     if [ $optional_args -eq 2 ] || [ $optional_args -eq 4 ]; then
-        log "$LOG_INFO" "Printing results to terminal"
+        log "$LOG_INFO" "Printing total file space used $directory results to terminal"
         echo "Total space used by '$directory': $total_size bytes"
         echo "Total space used by '$directory': $(( total_size_mb / 100 )).$(printf "%02d" $(( total_size_mb % 100 ))) MB"
     fi
@@ -491,7 +498,8 @@ filename_search() {
             local base_length=0
             ;;
         *)
-            error 0 # Invalid args error
+            error 0 & # Invalid args error
+            log "$LOG_INFO" "Process Run:" $!
             return 1 # Return 1 for invalid args provided
             ;;
     esac
@@ -500,14 +508,16 @@ filename_search() {
     log "$LOG_INFO" "Counting filenames excluding directory file paths"
     # Check if the file extention should be excluded from the file name length
     local exclude_extention=false
-    check_remove_extention
+    check_remove_extention &
+    log "$LOG_INFO" "Process Run:" $!
+    wait
     if [ $? -eq 0 ]; then
         log "$LOG_INFO" "Counting filenames excluding file extention"
         exclude_extention=true
     fi
     # Loop through all files in the directory, including subdirectory's if arg is present
     if [ $optional_args -eq 3 ] || [ $optional_args -eq 4 ]; then
-        log "$LOG_INFO" "Searching for the '$operation' file names and lengths in all subdirectory's"
+        log "$LOG_INFO" "Searching for the '$operation' file names and lengths in all subdirectory's of $directory"
         for file in "$directory"/**/*; do
             if [ -f "$file" ]; then
                 # Get the file name without the directory path
@@ -587,7 +597,7 @@ filename_search() {
     done
     # Output to terminal if arg is present
     if [ $optional_args -eq 2 ] || [ $optional_args -eq 4 ]; then
-        log "$LOG_INFO" "Printing results to terminal"
+        log "$LOG_INFO" "Printing $operation file name search results to terminal"
         echo "$operation file name length: $base_length"
         echo "${#files[@]} $operation file(s):"
         echo "$directory/:"
@@ -630,7 +640,8 @@ delete_old_logs() {
                 break;
                 ;;
             *)
-                error 0 # Invalid args
+                error 0 & # Invalid args
+                log "$LOG_INFO" "Process Run:" $!
                 ;;
         esac
     done
@@ -691,13 +702,17 @@ uuid_controller() {
 # Function to control the evaldir command.
 evaldir_controller() {
     # Ensure command has at least 2 args
-    expected_args ">" 2
+    expected_args ">" 2&
+    log "$LOG_INFO" "Process Run:" $!
+    wait
     if [ $? -eq 1 ]; then
         return 1
     fi
     log "$LOG_INFO" "Analyzing '$_DIRECTORY'"
     # Variables to sore optional arg states
-    check_evaldir_optional_args
+    check_evaldir_optional_args &
+    log "$LOG_INFO" "Process Run:" $!
+    wait
     local optional_args=$?
     # Perform functions per argument given
     command_arg=true
@@ -722,72 +737,72 @@ evaldir_controller() {
         log "$LOG_INFO" "Executing Arg '$arg'"
         # Count how many of each file types are present in the directory and all sub directoryies if arg is provided
         if [ "$arg" == "-ct" ]; then
-            count_file_types_handler "$_DIRECTORY" "$optional_args"
+            count_file_types_handler "$_DIRECTORY" "$optional_args" &
+            log "$LOG_INFO" "Process Run:" $!
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
-                        count_file_types_handler "$file" "$optional_args"
+                        count_file_types_handler "$file" "$optional_args" &
+                        log "$LOG_INFO" "Process Run:" $!
                     fi
                 done
             fi
-            echo "File type counting complete"
-            log "$LOG_INFO" "File type counting complete"
             continue
         fi
         # Count collective size of each file type in the directory if arg is provided
         if [ "$arg" == "-cts" ]; then
-            count_file_type_size_handler "$_DIRECTORY" "$optional_args"
+            count_file_type_size_handler "$_DIRECTORY" "$optional_args" &
+            log "$LOG_INFO" "Process Run:" $!
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
-                        count_file_type_size_handler "$file" "$optional_args"
+                        count_file_type_size_handler "$file" "$optional_args" &
+                        log "$LOG_INFO" "Process Run:" $!
                     fi
                 done
             fi
-            echo "Collective file type size counting complete"
-            log "$LOG_INFO" "Collective file type size counting complete"
             continue
         fi
         # Count the total space used, in human readable format, in the direcotry if arg is provided
         if [ "$arg" == "-t" ]; then
-            count_total_space "$_DIRECTORY" "$optional_args"
+            count_total_space "$_DIRECTORY" "$optional_args" &
+            log "$LOG_INFO" "Process Run:" $!
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
-                        count_total_space "$file" "$optional_args"
+                        count_total_space "$file" "$optional_args" &
+                        log "$LOG_INFO" "Process Run:" $!
                     fi
                 done
             fi
-            echo "Total space calculated successfully"
-            log "$LOG_INFO" "Total space calculated successfully"
             continue
         fi
         # Count and find the shortest file name(s) in directory if arg is provided
         if [ "$arg" == "-fs" ]; then
-            filename_search "$_DIRECTORY" "shortest" "$optional_args"
+            filename_search "$_DIRECTORY" "shortest" "$optional_args" &
+            log "$LOG_INFO" "Process Run:" $!
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
-                        filename_search "$file" "shortest" "$optional_args"
+                        filename_search "$file" "shortest" "$optional_args" &
+                        log "$LOG_INFO" "Process Run:" $!
                     fi
                 done
             fi
-            echo "Shortest file name search complete"
-            log "$LOG_INFO" "Shortest file name search complete"
             continue
         fi
         # Count and find the largest file name(s) in directory if arg is provided
         if [ "$arg" == "-fl" ]; then
-            filename_search "$_DIRECTORY" "largest" "$optional_args"
+            filename_search "$_DIRECTORY" "largest" "$optional_args" &
+            log "$LOG_INFO" "Process Run:" $!
             if [ $optional_args -ne 3 ] && [ $optional_args -ne 4 ]; then
                 for file in $_DIRECTORY/**/*; do
                     if [ -d "$file" ]; then
-                        filename_search "$file" "largest" "$optional_args"
+                        filename_search "$file" "largest" "$optional_args" &
+                        log "$LOG_INFO" "Process Run:" $!
                     fi
                 done
             fi
-            echo "Largest file name search complete"
-            log "$LOG_INFO" "Largest file name search complete"
             continue
         fi
         # Log invalid args
@@ -796,25 +811,30 @@ evaldir_controller() {
         echo "WARNING: Arg '$arg' is invalid"
         echo "Continueing to next arg"
     done
+    wait
+    log "$LOG_INFO" "Directory evaluation complete."
     return 0 # Returns 0 for process compelted
 }
 
 # Function to control the log command
 log_controller() {
     # Ensure command has 2 args
-    expected_args "=" 2
+    expected_args "=" 2 &
+    log "$LOG_INFO" "Process Run:" $!
+    wait
     if [ $? -eq 1 ]; then
         return 1
     fi
     # Check the second args for log management
     case ${args[1]} in
-        "-c") # Delete all previous log files
+        "-c")
             log "$LOG_INFO" "Executing Arg '${args[1]}'"
             delete_old_logs
             ;;
         *)
             log "$LOG_INFO" "Executing Arg '${args[1]}'"
-            error 0 # Invalid args
+            error 0 & # Invalid args
+            log "$LOG_INFO" "Process Run:" $!
             ;;
     esac
     return 0 # Returns 0 for process compelted
@@ -866,22 +886,32 @@ user_interface_controller() {
         # Check the first argument provided
         case ${args[0]} in 
             "uuid" | "id")
-                uuid_controller
+                uuid_controller &
+                log "$LOG_INFO" "Process Run:" $!
+                wait
                 ;;
             "evaldir" | "ed")
-                evaldir_controller
+                evaldir_controller &
+                log "$LOG_INFO" "Process Run:" $!
+                wait
                 ;;
             "exit" | "e")
                 exit_controller
                 ;;
             "log" | "l")
-                log_controller
+                log_controller &
+                log "$LOG_INFO" "Process Run:" $!
+                wait
                 ;;
             "help" | "h")
-                help_controller
+                help_controller &
+                log "$LOG_INFO" "Process Run:" $!
+                wait
                 ;;
             *)
-                error 1 # Command does not exist
+                error 1 & # Command does not exist
+                log "$LOG_INFO" "Process Run:" $!
+                wait
                 ;;
         esac
     done
@@ -924,9 +954,7 @@ case $1 in
         fi
         ;;
     "log" | "l")
-        log_controller &
-        log "$LOG_INFO" "Process Run:" $!
-        wait
+        log_controller
         if [ $? -eq 1 ]; then
             log "$LOG_ERROR" "Something went wrong"
             log "$LOG_ERROR" "Script exited with code 1"
@@ -946,9 +974,7 @@ case $1 in
         fi
         ;;
     "menu" | "m")
-        user_interface_controller &
-        log "$LOG_INFO" "Process Run:" $!
-        wait
+        user_interface_controller
         if [ $? -eq 1 ]; then
             log "$LOG_ERROR" "Something went wrong"
             log "$LOG_ERROR" "Script exited with code 1"
@@ -957,7 +983,8 @@ case $1 in
         fi
         ;;
     *)
-        error 1 # Command does not exist
+        error 1 & # Command does not exist
+        log "$LOG_INFO" "Process Run:" $!
         log "$LOG_ERROR" "Script exited with code 1"
         echo "Script Exiting... (1)"
         exit 1
