@@ -1,0 +1,6 @@
+Am not sure if this info is still required but the brief said to include these details in the submission:
+
+Name: Alex Ward (AW949)
+GitHub Username: AJGamesArchive
+GitHub Repo: https://github.com/AJGamesArchive/bash-utility-script
+Commit Hash: 044a4d1
